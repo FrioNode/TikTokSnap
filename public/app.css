@@ -6,6 +6,13 @@
   --accent:#185fa5;--accent-bg:#e6f1fb;--accent-tx:#0c447c;
   --success:#1d9e75;--success-bg:#e1f5ee;
   --warn:#d85a30;--warn-bg:#faece7;
+  --teal-bg: #E1F5EE;   --teal-tx: #085041;
+  --purple-bg: #EEEDFE; --purple-tx: #3C3489;
+  --amber-bg: #FAEEDA;  --amber-tx: #633806;
+  --coral-bg: #FAECE7;  --coral-tx: #712B13;
+  --green-bg: #EAF3DE;  --green-tx: #27500A;
+  --pink-bg: #FBEAF0;   --pink-tx: #72243E;
+  --accent-bg: #E6F1FB; --accent-tx: #0C447C;
 }
 html.dark{
   --bg:#151515;--bg2:#1f1f1f;--bg3:#292929;
@@ -14,6 +21,13 @@ html.dark{
   --accent:#65a6ff;--accent-bg:#1f385e;--accent-tx:#d2e5ff;
   --success:#5bc49f;--success-bg:#163b2f;
   --warn:#f08f5f;--warn-bg:#4b1f0f;
+  --teal-bg: #04342C;   --teal-tx: #9FE1CB;
+  --purple-bg: #26215C; --purple-tx: #CECBF6;
+  --amber-bg: #412402;  --amber-tx: #FAC775;
+  --coral-bg: #4A1B0C;  --coral-tx: #F5C4B3;
+  --green-bg: #173404;  --green-tx: #C0DD97;
+  --pink-bg: #4B1528;   --pink-tx: #F4C0D1;
+  --accent-bg: #042C53; --accent-tx: #B5D4F4;
 }
 html,body{min-height:100%;font-family:system-ui, sans-serif;font-size:15px;line-height:1.6;background:var(--bg);color:var(--tx);transition:background .2s,color .2s}
 body{padding-bottom:40px}
@@ -39,6 +53,14 @@ h1{font-size:3.5rem;font-weight:700;line-height:1.1;margin-bottom:.75rem;letter-
 .grid3{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:16px;margin-bottom:1rem}
 .grid2{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:16px;margin-bottom:1rem}
 .card{background:var(--bg2);border:1px solid var(--bd);border-radius:18px;padding:1.5rem;transition:background .2s,border-color .2s,box-shadow .2s}
+.badge-teal   { background: var(--teal-bg);   color: var(--teal-tx);   }
+.badge-purple { background: var(--purple-bg); color: var(--purple-tx); }
+.badge-amber  { background: var(--amber-bg);  color: var(--amber-tx);  }
+.badge-coral  { background: var(--coral-bg);  color: var(--coral-tx);  }
+.badge-green  { background: var(--green-bg);  color: var(--green-tx);  }
+.badge-pink   { background: var(--pink-bg);   color: var(--pink-tx);   }
+.badge-accent { background: var(--accent-bg); color: var(--accent-tx); }
+.stat-icon { font-size: 18px; margin-bottom: 4px; }
 .card:hover{box-shadow:0 4px 12px rgba(0,0,0,0.1)}
 .card h3{font-size:1.1rem;color:var(--tx);margin-bottom:.6rem;font-weight:600}
 .card p{color:var(--tx2);font-size:14px;line-height:1.7}

@@ -9,6 +9,7 @@
 </head>
 <body>
   <div class="wrap">
+
     <nav>
       <div class="logo">
         <div class="logo-icon"><i class="ti ti-brand-tiktok" style="font-size:18px"></i></div>
@@ -19,23 +20,33 @@
         <a href="/settings.html" class="auth-only">Settings</a>
         <button class="link-btn auth-only" id="logoutBtn">Logout</button>
         <button class="toggle" id="themeBtn" onclick="toggleTheme()">
-          <i class="ti ti-moon" id="themeIcon"></i> <span id="themeLabel">Dark mode</span>
+          <i class="ti ti-moon" id="themeIcon"></i>
+          <span id="themeLabel">Dark mode</span>
         </button>
       </div>
     </nav>
 
+    <!-- Top bar -->
     <div class="top-bar">
       <div>
-        <div class="page-title">Dashboard</div>
+        <span class="badge badge-teal" style="margin-bottom:8px;display:inline-flex">
+          <i class="ti ti-layout-dashboard"></i> Dashboard
+        </span>
+        <div class="page-title">Your workspace</div>
         <p class="sub">Monitor usage, plan limits, and queue new downloads from one place.</p>
       </div>
-      <button class="btn-secondary" onclick="logout()">Logout</button>
+      <button class="btn-secondary" onclick="logout()">
+        <i class="ti ti-logout"></i> Logout
+      </button>
     </div>
 
     <div id="notice" class="notice hidden"></div>
 
-    <!-- Queue form moved to top for faster access -->
+    <!-- Queue form -->
     <div class="form-card" style="margin-bottom:1.25rem">
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:12px">
+        <span class="badge badge-purple"><i class="ti ti-circle-plus"></i> New download</span>
+      </div>
       <form id="downloadForm" class="inline-form">
         <input id="url" name="url" type="url" placeholder="https://www.tiktok.com/@user/video/123" required>
         <select id="quality" name="quality" style="width:110px">
@@ -43,69 +54,114 @@
           <option value="720">720p</option>
           <option value="480">480p</option>
         </select>
-        <button class="btn-primary" type="submit" style="white-space:nowrap">Queue</button>
+        <button class="btn-primary" type="submit" style="white-space:nowrap">
+          <i class="ti ti-player-play"></i> Queue
+        </button>
       </form>
     </div>
 
-    <!-- Jobs list — moved here so queued jobs appear immediately under the form -->
-    <div id="jobsList" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:14px;margin-bottom:1rem">
-      <div style="grid-column:1/-1;color:var(--tx3);font-size:14px;padding:1.5rem;text-align:center">No downloads yet. Queue a video to get started.</div>
+    <!-- Jobs list -->
+    <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px">
+      <span class="badge badge-amber"><i class="ti ti-list"></i> Active jobs</span>
     </div>
-
-    <div class="info-block">
-      <h3>Welcome back, <span id="welcomeName">user</span></h3>
-      <p>Your API key is shown below. Use it with x-api-key when calling `/download`, `/audio`, or `/info`.</p>
-      <div style="display:flex;gap:12px;align-items:center;margin-top:8px;flex-wrap:wrap">
-        <div class="mono" id="apiKeyValue">Loading…</div>
-        <div class="health" id="backendHealth">Checking backend…</div>
+    <div id="jobsList" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:14px;margin-bottom:1.5rem">
+      <div style="grid-column:1/-1;color:var(--tx3);font-size:14px;padding:1.5rem;text-align:center;background:var(--bg2);border-radius:10px;border:0.5px solid var(--bd)">
+        <i class="ti ti-video-off" style="font-size:20px;display:block;margin-bottom:6px"></i>
+        No downloads yet. Queue a video to get started.
       </div>
     </div>
 
-    <div class="stats" id="usageStats">
-      <div class="stat"><div class="stat-n">--</div><div class="stat-l">Downloads</div></div>
-      <div class="stat"><div class="stat-n">--</div><div class="stat-l">API calls</div></div>
-      <div class="stat"><div class="stat-n">--</div><div class="stat-l">Used today</div></div>
+    <!-- API key + health -->
+    <div class="info-block">
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px">
+        <span class="badge badge-accent"><i class="ti ti-key"></i> API access</span>
+      </div>
+      <h3>Welcome back, <span id="welcomeName">user</span></h3>
+      <p>Use your API key with <code>x-api-key</code> when calling <code>/download</code>, <code>/audio</code>, or <code>/info</code>.</p>
+      <div style="display:flex;gap:12px;align-items:center;margin-top:10px;flex-wrap:wrap">
+        <div class="mono" id="apiKeyValue">Loading…</div>
+        <div class="health" id="backendHealth">
+          <i class="ti ti-loader"></i> Checking backend…
+        </div>
+      </div>
     </div>
 
-    <div class="section-label">Recent activity</div>
+    <!-- Usage stats -->
+    <div style="display:flex;align-items:center;gap:8px;margin:1.5rem 0 .75rem">
+      <span class="badge badge-green"><i class="ti ti-chart-bar"></i> Usage</span>
+    </div>
+    <div class="stats" id="usageStats">
+      <div class="stat">
+        <div class="stat-icon" style="color:var(--teal)"><i class="ti ti-download"></i></div>
+        <div class="stat-n">--</div>
+        <div class="stat-l">Downloads</div>
+      </div>
+      <div class="stat">
+        <div class="stat-icon" style="color:var(--accent)"><i class="ti ti-api"></i></div>
+        <div class="stat-n">--</div>
+        <div class="stat-l">API calls</div>
+      </div>
+      <div class="stat">
+        <div class="stat-icon" style="color:var(--amber)"><i class="ti ti-clock"></i></div>
+        <div class="stat-n">--</div>
+        <div class="stat-l">Used today</div>
+      </div>
+    </div>
+
+    <!-- Recent activity -->
+    <div style="display:flex;align-items:center;gap:8px;margin:1.5rem 0 .75rem">
+      <span class="badge badge-coral"><i class="ti ti-activity"></i> Recent activity</span>
+    </div>
     <div class="card" style="padding:0;overflow:auto;">
       <table class="data-table">
         <thead>
           <tr>
-            <th>Time</th>
-            <th>Endpoint</th>
-            <th>Status</th>
-            <th>URL</th>
-            <th>Job</th>
-            <th>IP</th>
+            <th><i class="ti ti-clock" style="font-size:13px;margin-right:4px"></i>Time</th>
+            <th><i class="ti ti-route" style="font-size:13px;margin-right:4px"></i>Endpoint</th>
+            <th><i class="ti ti-circle-check" style="font-size:13px;margin-right:4px"></i>Status</th>
+            <th><i class="ti ti-link" style="font-size:13px;margin-right:4px"></i>URL</th>
+            <th><i class="ti ti-subtask" style="font-size:13px;margin-right:4px"></i>Job</th>
+            <th><i class="ti ti-world" style="font-size:13px;margin-right:4px"></i>IP</th>
           </tr>
         </thead>
         <tbody id="recentTableBody">
-          <tr><td colspan="6" style="padding:1.5rem;text-align:center;color:var(--tx3)">Loading recent usage…</td></tr>
+          <tr>
+            <td colspan="6" style="padding:1.5rem;text-align:center;color:var(--tx3)">
+              <i class="ti ti-loader" style="font-size:18px;display:block;margin-bottom:6px"></i>
+              Loading recent usage…
+            </td>
+          </tr>
         </tbody>
       </table>
     </div>
 
+    <!-- Plan info cards -->
+    <div style="display:flex;align-items:center;gap:8px;margin:1.5rem 0 .75rem">
+      <span class="badge badge-pink"><i class="ti ti-star"></i> Plan details</span>
+    </div>
     <div class="grid2">
       <div class="card">
-        <h3>Plan</h3>
+        <span class="badge badge-accent" style="margin-bottom:8px"><i class="ti ti-rocket"></i> Plan</span>
+        <h3>Current plan</h3>
         <p id="planValue">Loading…</p>
       </div>
       <div class="card">
+        <span class="badge badge-green" style="margin-bottom:8px"><i class="ti ti-refresh"></i> Remaining</span>
         <h3>Remaining today</h3>
         <p id="remainingValue">Loading…</p>
       </div>
       <div class="card">
+        <span class="badge badge-amber" style="margin-bottom:8px"><i class="ti ti-clock"></i> Used</span>
         <h3>Used today</h3>
         <p id="usedValue">Loading…</p>
       </div>
     </div>
 
-    <!-- Recent downloads moved up (jobsList already shown above) -->
+    <footer class="footer">
+      <div>Manage your account in Settings.</div>
+      <div><a href="/settings.html"><i class="ti ti-settings" style="font-size:13px"></i> Go to Settings</a></div>
+    </footer>
 
-    <!-- old stacked queue form removed (now inline at top) -->
-
-    <footer class="footer"><div>Manage your account settings in Settings.</div><div><a href="/settings.html">Go to Settings</a></div></footer>
   </div>
   <script src="app.js"></script>
 </body>
