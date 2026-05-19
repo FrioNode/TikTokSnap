@@ -15,7 +15,12 @@ function generateKey() {
 // ── Helper — sign JWT ────────────────────
 function signToken(user) {
   return jwt.sign(
-    { id: user.id, email: user.email, plan: user.plan },
+    {
+      id: user.id,
+      email: user.email,
+      plan: user.plan,
+      ...(user.label && { label: user.label })
+    },
     JWT_SECRET,
     { expiresIn: '7d' }
   )

@@ -67,6 +67,32 @@ h1{font-size:3.5rem;font-weight:700;line-height:1.1;margin-bottom:.75rem;letter-
 .info-block p{font-size:.95rem;color:var(--tx2);line-height:1.6}
 .link-btn{background:transparent;border:1px solid var(--bd2);padding:10px 14px;border-radius:12px;color:var(--tx);cursor:pointer;transition:background .2s}
 .link-btn:hover{background:var(--bg2)}
+.inline-form{display:flex;gap:10px;align-items:center}
+.inline-form input{flex:1;min-width:0}
+.inline-form select{border-radius:12px;padding:10px}
+.health{font-size:0.95rem;color:var(--tx2);display:inline-flex;align-items:center;gap:8px}
+.health-dot{width:10px;height:10px;border-radius:999px;background:var(--tx3);display:inline-block}
+.health-ok .health-dot{background:var(--success)}
+.health-fail .health-dot{background:var(--warn)}
+
+/* Inline form styling to match cards and dark mode */
+.inline-form input, .inline-form select, .inline-form button{
+  border:1px solid var(--bd);
+  background:var(--bg);
+  color:var(--tx);
+  padding:10px 12px;
+  border-radius:10px;
+  font-size:14px;
+}
+.inline-form input::placeholder{color:var(--tx3)}
+.inline-form input:focus, .inline-form select:focus, .inline-form button:focus{outline:none;box-shadow:0 0 0 3px rgba(24,95,165,0.08);border-color:var(--accent)}
+.inline-form button{padding:10px 16px;border-radius:10px;border:0;background:var(--accent);color:#fff}
+.inline-form select{appearance:none}
 @media(max-width:1024px){.grid3{grid-template-columns:repeat(auto-fit,minmax(240px,1fr))}.grid2{grid-template-columns:repeat(auto-fit,minmax(260px,1fr))}.form-card{max-width:90%}.wrap{padding:1.5rem}}
 @media(max-width:768px){h1{font-size:2.5rem}.page-title{font-size:1.5rem}.hero h1{font-size:2.5rem}.nav-links{justify-content:center}.cta-row{flex-direction:column;align-items:center;width:100%}.stats{grid-template-columns:repeat(2,1fr)}.grid3{grid-template-columns:1fr}.grid2{grid-template-columns:1fr}.top-bar{flex-direction:column;gap:12px}.form-card{max-width:100%}.wrap{padding:1rem}}
+@media(max-width:768px){
+  .inline-form{flex-direction:column;align-items:stretch}
+  .inline-form select{width:100%}
+  .inline-form button{width:100%}
+}
 @media(max-width:480px){.wrap{padding:0.75rem;margin:0}.hero{padding:1rem 0}.nav{margin-bottom:2rem}.page-title{font-size:1.3rem}h1{font-size:1.8rem}.form-card{padding:1.5rem;border-radius:16px}.field{margin-bottom:1rem}.stats{grid-template-columns:1fr}.card{padding:1rem}}

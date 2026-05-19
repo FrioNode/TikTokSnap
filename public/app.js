@@ -145,6 +145,7 @@ async function loadDashboard() {
   const jobsList = document.getElementById('jobsList')
   const jobs = new Map()
   let pollInterval = null
+  const JOBS_KEY = 'tiktok_jobs'
 
   async function renderJobs() {
     if (jobs.size === 0) {
@@ -172,6 +173,11 @@ async function loadDashboard() {
         const data = await res.json()
         if (res.ok) {
           jobs.set(jobId, { ...job, ...data })
+          if (data.status === 'completed' || data.status === 'failed') {
+            removePersistedJobId(jobId)
+          } else {
+            persistJobId(jobId)
+          }
         }
       } catch (err) {
         console.error(`Failed to poll job ${jobId}`, err)
@@ -185,7 +191,7 @@ async function loadDashboard() {
     const data = await res.json()
     if (!res.ok) throw new Error(data.error || 'Could not load profile')
 
-    welcomeName.textContent = data.email
+    welcomeName.textContent = data.label || data.email
     profileKey.textContent = data.api_key || 'N/A'
     planValue.textContent = data.plan
     remainingValue.textContent = data.remaining_today
@@ -196,6 +202,33 @@ async function loadDashboard() {
         <div class="stat"><div class="stat-n">${data.stats?.requests || 0}</div><div class="stat-l">API calls</div></div>
         <div class="stat"><div class="stat-n">${data.stats?.errors || 0}</div><div class="stat-l">Errors</div></div>
       `
+    }
+    // Fetch backend health status
+    const healthEl = document.getElementById('backendHealth')
+    if (healthEl) {
+      try {
+        const hres = await fetch('/health')
+        if (hres.ok) {
+          const hj = await hres.json()
+          if (hj && hj.status === 'ok') {
+            healthEl.classList.remove('health-fail')
+            healthEl.classList.add('health-ok')
+            healthEl.innerHTML = '<span class="health-dot"></span><span>Backend healthy</span>'
+          } else {
+            healthEl.classList.remove('health-ok')
+            healthEl.classList.add('health-fail')
+            healthEl.innerHTML = '<span class="health-dot"></span><span>Backend issue</span>'
+          }
+        } else {
+          healthEl.classList.remove('health-ok')
+          healthEl.classList.add('health-fail')
+          healthEl.innerHTML = '<span class="health-dot"></span><span>Backend unreachable</span>'
+        }
+      } catch (err) {
+        healthEl.classList.remove('health-ok')
+        healthEl.classList.add('health-fail')
+        healthEl.innerHTML = '<span class="health-dot"></span><span>Health check failed</span>'
+      }
     }
   } catch (err) {
     if (statusEl) statusEl.textContent = 'Session expired. Redirecting…'
@@ -219,6 +252,8 @@ async function loadDashboard() {
         const data = await res.json()
         if (!res.ok) return showNotice(data.error || 'Could not queue download', 'error')
         jobs.set(data.jobId, { jobId: data.jobId, status: data.status, progress: 0, downloadUrl: null })
+        // persist job id so it survives refresh
+        persistJobId(String(data.jobId))
         await renderJobs()
         showNotice(`Queued! Job ID: ${data.jobId}`, 'success')
         downloadForm.url.value = ''
@@ -227,6 +262,41 @@ async function loadDashboard() {
         showNotice('Unable to queue download.', 'error')
       }
     })
+  }
+
+  // restore persisted job IDs on load
+  (function restoreJobs() {
+    try {
+      const stored = JSON.parse(localStorage.getItem(JOBS_KEY) || '[]')
+      if (Array.isArray(stored)) {
+        for (const id of stored) {
+          if (!jobs.has(String(id))) jobs.set(String(id), { jobId: String(id), status: 'queued', progress: 0 })
+        }
+      }
+    } catch (err) {
+      console.error('Failed to restore jobs from storage', err)
+    }
+  })()
+
+  function persistJobId(id) {
+    try {
+      const arr = JSON.parse(localStorage.getItem(JOBS_KEY) || '[]')
+      const s = new Set(arr.map(String))
+      s.add(String(id))
+      localStorage.setItem(JOBS_KEY, JSON.stringify(Array.from(s)))
+    } catch (err) {
+      console.error('Failed to persist job id', err)
+    }
+  }
+
+  function removePersistedJobId(id) {
+    try {
+      const arr = JSON.parse(localStorage.getItem(JOBS_KEY) || '[]')
+      const filtered = Array.isArray(arr) ? arr.map(String).filter(item => item !== String(id)) : []
+      localStorage.setItem(JOBS_KEY, JSON.stringify(filtered))
+    } catch (err) {
+      console.error('Failed to remove job id', err)
+    }
   }
 
   await renderJobs()
