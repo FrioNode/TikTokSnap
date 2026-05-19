@@ -9,6 +9,11 @@ Caching → faster responses, saves bandwidth
 Error messages → cleaner UX for your customers
 Usage tracking → know who's using what, needed for billing
 Webhooks → lets bulk downloads run async, big feature unlock
+✅ Queue (Bull + Redis)
+✅ Job polling
+✅ File cleanup on download
+✅ File cleanup on timeout (10 min fallback)
+✅ Error messages
 
 ## Setup
 

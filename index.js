@@ -172,6 +172,8 @@ app.get('/file/:id', async (req, res) => {
 
     const stream = fs.createReadStream(filePath)
     stream.pipe(res)
+    stream.on('end', () => { fs.unlink(filePath, () => {})  })
+    res.on('close', () => { if (fs.existsSync(filePath)) fs.unlink(filePath, () => {}) })
     stream.on('error', () => res.status(500).json({ error: 'Stream error' }))
   } catch (err) {
     res.status(500).json({ error: 'Could not serve file' })
