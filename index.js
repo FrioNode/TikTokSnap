@@ -222,13 +222,24 @@ app.get('/file/:id', async (req, res) => {
 // GET /me  →  key stats for the caller
 // ─────────────────────────────────────────
 app.get('/me', (req, res) => {
-  const stats = db.statsForKey(req.apiKey)
+  const stats = db.statsForUser(req.keyRecord.user_id)
   res.json({
-    key: req.apiKey,
+    api_key: req.apiKey,
     plan: req.keyRecord.plan,
     limit_day: req.keyRecord.limit_day,
-    used_today: db.countToday(req.apiKey),
-    ...stats
+    used_today: db.countToday(req.keyRecord.user_id),
+    remaining_today: req.keyRecord.limit_day - db.countToday(req.keyRecord.user_id),
+    email: req.keyRecord.email,
+    label: req.keyRecord.label,
+    stats: {
+      total_requests: stats.total_requests,
+      today: stats.today,
+      downloads: stats.downloads,
+      audio: stats.audio,
+      info: stats.info,
+      errors: stats.errors,
+      recent: stats.recent
+    }
   })
 })
 

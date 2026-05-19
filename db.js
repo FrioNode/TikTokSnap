@@ -95,7 +95,7 @@ const stmts = {
     FROM usage WHERE user_id = ?
   `),
   recentForUser: db.prepare(`
-    SELECT endpoint, url, status, created_at FROM usage
+    SELECT endpoint, url, status, job_id, ip, created_at FROM usage
     WHERE user_id = ?
     ORDER BY created_at DESC LIMIT 20
   `),

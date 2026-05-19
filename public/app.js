@@ -141,6 +141,7 @@ async function loadDashboard() {
   const planValue = document.getElementById('planValue')
   const remainingValue = document.getElementById('remainingValue')
   const usedValue = document.getElementById('usedValue')
+  const recentTableBody = document.getElementById('recentTableBody')
   const welcomeName = document.getElementById('welcomeName')
   const jobsList = document.getElementById('jobsList')
   const jobs = new Map()
@@ -166,25 +167,29 @@ async function loadDashboard() {
     `).join('')
   }
 
-  async function pollJobs() {
+    async function pollJobs() {
+    if (jobs.size === 0) return
+    
     for (const [jobId, job] of jobs) {
-      try {
+        // Don't poll completed or failed jobs
+        if (job.status === 'completed' || job.status === 'failed') continue
+        
+        try {
         const res = await fetch(`/job/${jobId}`, { headers: authHeaders() })
         const data = await res.json()
         if (res.ok) {
-          jobs.set(jobId, { ...job, ...data })
-          if (data.status === 'completed' || data.status === 'failed') {
+            jobs.set(jobId, { ...job, ...data })
+            if (data.status === 'completed' || data.status === 'failed') {
             removePersistedJobId(jobId)
-          } else {
-            persistJobId(jobId)
-          }
+            }
+            await renderJobs() // Re-render after each job update
         }
-      } catch (err) {
+        } catch (err) {
         console.error(`Failed to poll job ${jobId}`, err)
-      }
+        }
     }
     await renderJobs()
-  }
+    }
 
   try {
     const res = await fetch('/auth/me', { headers: authHeaders() })
@@ -199,10 +204,28 @@ async function loadDashboard() {
     if (statsEl) {
       statsEl.innerHTML = `
         <div class="stat"><div class="stat-n">${data.stats?.downloads || 0}</div><div class="stat-l">Downloads</div></div>
-        <div class="stat"><div class="stat-n">${data.stats?.requests || 0}</div><div class="stat-l">API calls</div></div>
+        <div class="stat"><div class="stat-n">${data.stats?.total_requests || 0}</div><div class="stat-l">API calls</div></div>
         <div class="stat"><div class="stat-n">${data.stats?.errors || 0}</div><div class="stat-l">Errors</div></div>
       `
     }
+
+    if (recentTableBody) {
+      const rows = (data.stats?.recent || []).map(item => {
+        const when = new Date(item.created_at).toLocaleString()
+        return `
+          <tr>
+            <td>${when}</td>
+            <td>${item.endpoint}</td>
+            <td>${item.status}</td>
+            <td style="min-width:260px;max-width:420px;white-space:pre-wrap;word-break:break-word;">${item.url || ''}</td>
+            <td>${item.job_id || '-'}</td>
+            <td>${item.ip || '-'}</td>
+          </tr>
+        `
+      })
+      recentTableBody.innerHTML = rows.length > 0 ? rows.join('') : '<tr><td colspan="6" style="padding:1.5rem;text-align:center;color:var(--tx3)">No recent activity yet.</td></tr>'
+    }
+
     // Fetch backend health status
     const healthEl = document.getElementById('backendHealth')
     if (healthEl) {
@@ -264,19 +287,34 @@ async function loadDashboard() {
     })
   }
 
-  // restore persisted job IDs on load
-  (function restoreJobs() {
+ // restore persisted job IDs AND fetch their current status
+    (async function restoreJobs() {
     try {
-      const stored = JSON.parse(localStorage.getItem(JOBS_KEY) || '[]')
-      if (Array.isArray(stored)) {
+        const stored = JSON.parse(localStorage.getItem(JOBS_KEY) || '[]')
+        if (Array.isArray(stored) && stored.length > 0) {
+        // Fetch current status for all stored jobs
         for (const id of stored) {
-          if (!jobs.has(String(id))) jobs.set(String(id), { jobId: String(id), status: 'queued', progress: 0 })
+            try {
+            const res = await fetch(`/job/${id}`, { headers: authHeaders() })
+            const data = await res.json()
+            if (res.ok) {
+                jobs.set(String(id), { jobId: String(id), ...data })
+                if (data.status === 'completed' || data.status === 'failed') {
+                removePersistedJobId(id)
+                }
+            } else {
+                jobs.set(String(id), { jobId: String(id), status: 'queued', progress: 0 })
+            }
+            } catch (err) {
+            jobs.set(String(id), { jobId: String(id), status: 'queued', progress: 0 })
+            }
         }
-      }
+        }
     } catch (err) {
-      console.error('Failed to restore jobs from storage', err)
+        console.error('Failed to restore jobs from storage', err)
     }
-  })()
+    await renderJobs()
+    })()
 
   function persistJobId(id) {
     try {
@@ -300,7 +338,7 @@ async function loadDashboard() {
   }
 
   await renderJobs()
-  pollInterval = setInterval(pollJobs, 5000)
+  pollInterval = setInterval(pollJobs, 2000)
   window.addEventListener('beforeunload', () => clearInterval(pollInterval))
 }
 

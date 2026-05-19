@@ -42,6 +42,12 @@ h1{font-size:3.5rem;font-weight:700;line-height:1.1;margin-bottom:.75rem;letter-
 .card:hover{box-shadow:0 4px 12px rgba(0,0,0,0.1)}
 .card h3{font-size:1.1rem;color:var(--tx);margin-bottom:.6rem;font-weight:600}
 .card p{color:var(--tx2);font-size:14px;line-height:1.7}
+.card:has(table) { margin-bottom: 2rem; }
+.data-table{width:100%;border-collapse:collapse;font-size:0.92rem;}
+.data-table th,.data-table td{padding:0.9rem 0.85rem;text-align:left;border-bottom:1px solid var(--bd);color:var(--tx2)}
+.data-table th{font-weight:700;color:var(--tx);letter-spacing:0.02em}
+.data-table tbody tr:hover{background:rgba(24,95,165,0.05)}
+.data-table td{vertical-align:top;word-break:break-all}
 .mono{display:inline-flex;font-family:ui-monospace,monospace;font-size:12px;background:var(--bg);padding:.5rem .8rem;border-radius:9px;color:var(--tx3);border:1px solid var(--bd);word-break:break-all}
 .stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:16px;margin-bottom:2rem}
 .stat{background:var(--bg2);border:1px solid var(--bd);border-radius:16px;padding:1.5rem;text-align:center;transition:background .2s}
