@@ -4,24 +4,60 @@ const fs = require('fs')
 const { exec } = require('child_process')
 const rateLimit = require('express-rate-limit')
 const downloadQueue = require('./queue')
+const db = require('./db')
+
+const { router: authRouter, requireAuth } = require('./auth')
+
+const checkAndLog = db.db.transaction((key, limit, data) => {
+  const used = db.countToday(key)
+  if (used >= limit) return false
+  db.log(data)
+  return true
+})
 
 const app = express()
 app.use(express.json())
+app.use('/auth', authRouter)
 
 const limiter = rateLimit({
   windowMs: 60 * 60 * 1000,
-  max: 50,
+  max: 200,
   message: { error: 'Rate limit hit. Upgrade your plan.' }
 })
 app.use(limiter)
 
+// ── Auth + usage tracking middleware ────
 app.use((req, res, next) => {
   if (req.path === '/health') return next()
+
   const key = req.headers['x-api-key']
-  const validKeys = (process.env.API_KEYS || 'frionode').split(',')
-  if (!validKeys.includes(key)) {
-    return res.status(401).json({ error: 'Invalid API key.' })
+  if (!key) return res.status(401).json({ error: 'Missing x-api-key header' })
+
+  const keyRecord = db.getKey(key)
+  if (!keyRecord) return res.status(401).json({ error: 'Invalid API key' })
+
+  const allowed = checkAndLog(key, keyRecord.limit_day, {
+    api_key: key,
+    endpoint: req.path,
+    url: req.body?.url || null,
+    job_id: req.params?.id || null,
+    status: 'ok',
+    ip: req.ip
+  })
+
+  if (!allowed) {
+    return res.status(429).json({
+      error: 'Daily limit reached',
+      plan: keyRecord.plan,
+      limit: keyRecord.limit_day
+    })
   }
+
+  // Attach key info to request
+  req.apiKey = key
+  req.keyRecord = keyRecord
+  req.ip = req.headers['x-forwarded-for'] || req.socket.remoteAddress
+
   next()
 })
 
@@ -30,7 +66,7 @@ function isValidTikTokUrl(url) {
 }
 
 // ─────────────────────────────────────────
-// POST /info  →  instant metadata (no queue needed)
+// POST /info
 // ─────────────────────────────────────────
 app.post('/info', (req, res) => {
   const { url } = req.body
@@ -59,8 +95,7 @@ app.post('/info', (req, res) => {
 })
 
 // ─────────────────────────────────────────
-// POST /download  →  queues job, returns jobId
-// body: { url, quality? }
+// POST /download
 // ─────────────────────────────────────────
 app.post('/download', async (req, res) => {
   const { url, quality = 'best' } = req.body
@@ -77,7 +112,8 @@ app.post('/download', async (req, res) => {
       status: 'queued',
       position: queueDepth,
       pollUrl: `/job/${job.id}`,
-      message: 'Job queued. Poll /job/:id for status.'
+      plan: req.keyRecord.plan,
+      remainingToday: req.keyRecord.limit_day - db.countToday(req.apiKey)
     })
   } catch (err) {
     res.status(500).json({ error: 'Failed to queue job', detail: err.message })
@@ -85,8 +121,7 @@ app.post('/download', async (req, res) => {
 })
 
 // ─────────────────────────────────────────
-// POST /audio  →  queues audio extraction
-// body: { url }
+// POST /audio
 // ─────────────────────────────────────────
 app.post('/audio', async (req, res) => {
   const { url } = req.body
@@ -100,7 +135,7 @@ app.post('/audio', async (req, res) => {
       jobId: job.id,
       status: 'queued',
       pollUrl: `/job/${job.id}`,
-      message: 'Audio job queued. Poll /job/:id for status.'
+      remainingToday: req.keyRecord.limit_day - db.countToday(req.apiKey)
     })
   } catch (err) {
     res.status(500).json({ error: 'Failed to queue job' })
@@ -108,7 +143,7 @@ app.post('/audio', async (req, res) => {
 })
 
 // ─────────────────────────────────────────
-// GET /job/:id  →  poll job status
+// GET /job/:id
 // ─────────────────────────────────────────
 app.get('/job/:id', async (req, res) => {
   try {
@@ -130,11 +165,7 @@ app.get('/job/:id', async (req, res) => {
     }
 
     if (state === 'failed') {
-      return res.json({
-        jobId: job.id,
-        status: 'failed',
-        error: job.failedReason
-      })
+      return res.json({ jobId: job.id, status: 'failed', error: job.failedReason })
     }
 
     res.json({
@@ -149,7 +180,7 @@ app.get('/job/:id', async (req, res) => {
 })
 
 // ─────────────────────────────────────────
-// GET /file/:id  →  serve completed file
+// GET /file/:id
 // ─────────────────────────────────────────
 app.get('/file/:id', async (req, res) => {
   try {
@@ -171,17 +202,77 @@ app.get('/file/:id', async (req, res) => {
     res.setHeader('Content-Disposition', `attachment; filename="tiktok_${job.id}.${ext}"`)
 
     const stream = fs.createReadStream(filePath)
+
+    res.on('close', () => {
+      if (fs.existsSync(filePath)) fs.unlink(filePath, () => {})
+    })
+
     stream.pipe(res)
-    stream.on('end', () => { fs.unlink(filePath, () => {})  })
-    res.on('close', () => { if (fs.existsSync(filePath)) fs.unlink(filePath, () => {}) })
+    stream.on('end', () => fs.unlink(filePath, () => {}))
     stream.on('error', () => res.status(500).json({ error: 'Stream error' }))
+    res.on('close', () => { if (fs.existsSync(filePath)) fs.unlink(filePath, () => {}) })
   } catch (err) {
     res.status(500).json({ error: 'Could not serve file' })
   }
 })
 
 // ─────────────────────────────────────────
-// GET /queue/stats  →  queue health
+// GET /me  →  key stats for the caller
+// ─────────────────────────────────────────
+app.get('/me', (req, res) => {
+  const stats = db.statsForKey(req.apiKey)
+  res.json({
+    key: req.apiKey,
+    plan: req.keyRecord.plan,
+    limit_day: req.keyRecord.limit_day,
+    used_today: db.countToday(req.apiKey),
+    ...stats
+  })
+})
+
+// ─────────────────────────────────────────
+// GET /admin/stats  →  all keys overview
+// protected by ADMIN_KEY header
+// ─────────────────────────────────────────
+app.get('/admin/stats', (req, res) => {
+  const adminKey = req.headers['x-admin-key']
+  if (adminKey !== process.env.ADMIN_KEY) {
+    return res.status(403).json({ error: 'Forbidden' })
+  }
+  res.json(db.allKeysStats())
+})
+
+// ─────────────────────────────────────────
+// POST /admin/keys  →  create a new API key
+// ─────────────────────────────────────────
+app.post('/admin/keys', (req, res) => {
+  const adminKey = req.headers['x-admin-key']
+  if (adminKey !== process.env.ADMIN_KEY) {
+    return res.status(403).json({ error: 'Forbidden' })
+  }
+
+  const { label, plan = 'starter' } = req.body
+  if (!label) return res.status(400).json({ error: 'label is required' })
+
+  const key = `tk_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`
+  db.addKey(key, label, plan)
+  res.json({ key, label, plan })
+})
+
+// ─────────────────────────────────────────
+// DELETE /admin/keys/:key  →  revoke a key
+// ─────────────────────────────────────────
+app.delete('/admin/keys/:key', (req, res) => {
+  const adminKey = req.headers['x-admin-key']
+  if (adminKey !== process.env.ADMIN_KEY) {
+    return res.status(403).json({ error: 'Forbidden' })
+  }
+  db.revokeKey(req.params.key)
+  res.json({ revoked: req.params.key })
+})
+
+// ─────────────────────────────────────────
+// GET /queue/stats
 // ─────────────────────────────────────────
 app.get('/queue/stats', async (req, res) => {
   const [waiting, active, completed, failed] = await Promise.all([
