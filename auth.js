@@ -196,7 +196,7 @@ router.post('/change-password', requireAuth, async (req, res) => {
 
   try {
     const hashed = await bcrypt.hash(new_password, SALT_ROUNDS)
-    db.db.prepare('UPDATE users SET password = ? WHERE id = ?').run(hashed, req.user.id)
+    db.updatePassword({ id: req.user.id, password: hashed })
     res.json({ message: 'Password changed successfully' })
   } catch (err) {
     console.error(err)
@@ -209,7 +209,7 @@ router.post('/update-profile', requireAuth, (req, res) => {
   const { phone, label } = req.body
 
   try {
-    db.db.prepare('UPDATE users SET phone = ?, label = ? WHERE id = ?').run(phone, label, req.user.id)
+    db.updateProfile({ id: req.user.id, phone: phone || req.user.phone, label: label || req.user.label })
     res.json({ message: 'Profile updated successfully' })
   } catch (err) {
     console.error(err)

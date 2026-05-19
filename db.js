@@ -67,6 +67,10 @@ const stmts = {
   deactivateKey: db.prepare(`UPDATE api_keys SET active = 0 WHERE user_id = ?`),
   setRotatedAt:  db.prepare(`UPDATE api_keys SET rotated_at = CURRENT_TIMESTAMP WHERE key = ?`),
 
+  // update user details
+  updateProfile:  db.prepare(`UPDATE users SET phone = @phone, label = @label WHERE id = @id`),
+  updatePassword: db.prepare(`UPDATE users SET password = @password WHERE id = @id`),
+
   // Usage — counts against user_id, not key
   logRequest: db.prepare(`
     INSERT INTO usage (user_id, api_key, endpoint, url, job_id, status, ip)
@@ -99,7 +103,7 @@ const stmts = {
   // Admin
   allUsersStats: db.prepare(`
     SELECT
-      u.id, u.email, u.phone, u.plan, u.created_at,
+      u.id, u.label, u.email, u.phone, u.plan, u.created_at,
       k.key, k.active as key_active, k.rotated_at,
       COUNT(us.id)                                                      as total_requests,
       SUM(CASE WHEN date(us.created_at) = date('now') THEN 1 ELSE 0 END) as today
@@ -149,6 +153,8 @@ module.exports = {
   createKey:      (data)    => stmts.createKey.run(data),
   getKey:         (key)     => stmts.getKey.get(key),
   getKeyByUser:   (userId)  => stmts.getKeyByUser.get(userId),
+  updateProfile:  (data) => stmts.updateProfile.run(data),
+  updatePassword: (data) => stmts.updatePassword.run(data),
   rotateKey,
   checkAndLog,
   countToday:     (userId)  => stmts.countToday.get(userId).total,
