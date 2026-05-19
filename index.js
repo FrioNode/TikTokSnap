@@ -26,6 +26,10 @@ app.use(limiter)
 // ── Auth + usage tracking middleware ────
 app.use((req, res, next) => {
   if (req.path === '/health') return next()
+  // Don't count job polling or downloads against quota
+  if (req.path.startsWith('/job/') || req.path.startsWith('/file/')) return next()
+  // Auth routes use Bearer tokens, not x-api-key
+  if (req.path.startsWith('/auth/')) return next()
 
   const key = req.headers['x-api-key']
   if (!key) return res.status(401).json({ error: 'Missing x-api-key header' })

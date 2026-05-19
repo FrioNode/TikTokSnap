@@ -142,6 +142,43 @@ async function loadDashboard() {
   const remainingValue = document.getElementById('remainingValue')
   const usedValue = document.getElementById('usedValue')
   const welcomeName = document.getElementById('welcomeName')
+  const jobsList = document.getElementById('jobsList')
+  const jobs = new Map()
+  let pollInterval = null
+
+  async function renderJobs() {
+    if (jobs.size === 0) {
+      jobsList.innerHTML = '<div style="grid-column:1/-1;color:var(--tx3);font-size:14px;padding:2rem;text-align:center">No downloads yet. Queue a video to get started.</div>'
+      return
+    }
+    jobsList.innerHTML = Array.from(jobs.values()).map(job => `
+      <div class="card" style="border-color:var(--bd2)">
+        <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px">
+          <div style="flex:1">
+            <h3 style="font-size:0.95rem">${job.status === 'completed' ? '✅' : job.status === 'failed' ? '❌' : '⏳'} Job ${job.jobId}</h3>
+            <p style="font-size:0.9rem;color:var(--tx3);margin-bottom:6px">${job.status === 'active' ? 'Downloading...' : job.status === 'completed' ? 'Ready to download' : job.status === 'failed' ? 'Failed' : 'Waiting in queue...'}</p>
+            ${job.progress !== undefined ? `<div style="width:100%;height:6px;background:var(--bg);border-radius:3px;overflow:hidden"><div style="height:100%;background:var(--accent);width:${job.progress}%;transition:width .3s"></div></div>` : ''}
+          </div>
+          ${job.status === 'completed' ? `<a href="${job.downloadUrl}" class="btn-primary" style="white-space:nowrap;text-decoration:none;padding:7px 12px;font-size:12px" download>Download</a>` : ''}
+        </div>
+      </div>
+    `).join('')
+  }
+
+  async function pollJobs() {
+    for (const [jobId, job] of jobs) {
+      try {
+        const res = await fetch(`/job/${jobId}`, { headers: authHeaders() })
+        const data = await res.json()
+        if (res.ok) {
+          jobs.set(jobId, { ...job, ...data })
+        }
+      } catch (err) {
+        console.error(`Failed to poll job ${jobId}`, err)
+      }
+    }
+    await renderJobs()
+  }
 
   try {
     const res = await fetch('/auth/me', { headers: authHeaders() })
@@ -161,7 +198,7 @@ async function loadDashboard() {
       `
     }
   } catch (err) {
-    statusEl.textContent = 'Session expired. Redirecting…'
+    if (statusEl) statusEl.textContent = 'Session expired. Redirecting…'
     setTimeout(() => logout(), 900)
   }
 
@@ -181,13 +218,22 @@ async function loadDashboard() {
         })
         const data = await res.json()
         if (!res.ok) return showNotice(data.error || 'Could not queue download', 'error')
+        jobs.set(data.jobId, { jobId: data.jobId, status: data.status, progress: 0, downloadUrl: null })
+        await renderJobs()
         showNotice(`Queued! Job ID: ${data.jobId}`, 'success')
+        downloadForm.url.value = ''
+        downloadForm.quality.value = 'best'
       } catch (err) {
         showNotice('Unable to queue download.', 'error')
       }
     })
   }
+
+  await renderJobs()
+  pollInterval = setInterval(pollJobs, 5000)
+  window.addEventListener('beforeunload', () => clearInterval(pollInterval))
 }
+
 
 async function loadSettings() {
   if (!requireAuthPage()) return
