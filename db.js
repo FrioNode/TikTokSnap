@@ -119,10 +119,19 @@ const stmts = {
 const PLAN_LIMITS = { free: 30, starter: 200, pro: 1000, unlimited: 99999 }
 
 // ── Atomic check + log ───────────────────
+// ── Atomic check + log ───────────────────
 const checkAndLog = db.transaction((userId, limit, data) => {
   const used = stmts.countToday.get(userId).total
   if (used >= limit) return false
-  stmts.logRequest.run(data)
+  stmts.logRequest.run({
+    user_id: userId,
+    api_key: data.api_key,
+    endpoint: data.endpoint,
+    url: data.url,
+    job_id: data.job_id,
+    status: data.status,
+    ip: data.ip
+  })
   return true
 })
 

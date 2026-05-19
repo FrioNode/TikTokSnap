@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1.0">
+  <title>Register - TikTokSnap</title>
+  <link rel="stylesheet" href="app.css">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@latest/tabler-icons.min.css">
+</head>
+<body>
+  <div class="wrap">
+    <nav>
+      <div class="logo">
+        <div class="logo-icon"><i class="ti ti-brand-tiktok" style="font-size:18px"></i></div>
+        TikTokSnap
+      </div>
+      <div class="nav-links">
+        <a href="/" class="link-btn">Home</a>
+        <a href="/login.html" class="link-btn">Login</a>
+        <button class="toggle" id="themeBtn" onclick="toggleTheme()">
+          <i class="ti ti-moon" id="themeIcon"></i> <span id="themeLabel">Dark mode</span>
+        </button>
+      </div>
+    </nav>
+
+    <div class="form-card">
+      <div class="top-bar"><div>
+        <div class="page-title">Register</div>
+        <p class="sub">Sign up and start downloading TikTok videos with a named, watermark-free file.</p>
+      </div></div>
+      <div id="notice" class="notice hidden"></div>
+      <form id="registerForm">
+        <div class="field"><label for="email">Email</label><input id="email" name="email" type="email" autocomplete="email" required></div>
+        <div class="field"><label for="password">Password</label><input id="password" name="password" type="password" autocomplete="new-password" minlength="8" required></div>
+        <div class="field"><label for="phone">Phone (optional)</label><input id="phone" name="phone" type="tel" autocomplete="tel" placeholder="+1 555-555-5555"></div>
+        <div class="field"><label for="label">Display name</label><input id="label" name="label" type="text" autocomplete="name" placeholder="Your company or team name"></div>
+        <div class="form-actions">
+          <button class="btn-primary" type="submit">Create account</button>
+          <a class="btn-secondary" href="/login.html">Already have account</a>
+        </div>
+      </form>
+    </div>
+
+    <footer class="footer"><div>Already registered?</div><div><a href="/login.html">Login</a></div></footer>
+  </div>
+  <script src="app.js"></script>
+</body>
+</html>

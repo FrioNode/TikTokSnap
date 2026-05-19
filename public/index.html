@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1.0">
+  <title>TikTokSnap — Download TikTok without watermark</title>
+  <link rel="stylesheet" href="app.css">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@latest/tabler-icons.min.css">
+</head>
+<body>
+  <div class="wrap">
+    <nav>
+      <div class="logo">
+        <div class="logo-icon"><i class="ti ti-brand-tiktok" style="font-size:18px"></i></div>
+        TikTokSnap
+      </div>
+      <div class="nav-links">
+        <a href="/login.html" class="guest-only">Login</a>
+        <a href="/register.html" class="guest-only">Register</a>
+        <a href="/dashboard.html" class="auth-only hidden">Dashboard</a>
+        <button class="toggle" id="themeBtn" onclick="toggleTheme()">
+          <i class="ti ti-moon" id="themeIcon"></i> <span id="themeLabel">Dark mode</span>
+        </button>
+      </div>
+    </nav>
+
+    <div class="hero">
+      <div class="badge"><i class="ti ti-bolt"></i> Fast TikTok download API</div>
+      <h1>Paste a TikTok link, download clean video.</h1>
+      <p class="sub">No watermark, no naming hassle, desktop-friendly UI for your customers. Register, login, queue downloads, and manage usage from one dashboard.</p>
+      <div class="cta-row">
+        <a class="btn-primary" href="/register.html">Get started</a>
+        <a class="btn-secondary" href="/login.html">Login</a>
+      </div>
+    </div>
+
+    <div class="stats">
+      <div class="stat"><div class="stat-n">100%</div><div class="stat-l">No watermark</div></div>
+      <div class="stat"><div class="stat-n">24/7</div><div class="stat-l">API availability</div></div>
+      <div class="stat"><div class="stat-n">1 min</div><div class="stat-l">Quick queue response</div></div>
+    </div>
+
+    <div class="section-label">Core pages</div>
+    <div class="grid2">
+      <div class="card"><h3>Home</h3><p>Landing page with product overview, login/register actions, and theme control.</p></div>
+      <div class="card"><h3>Register</h3><p>Create an account and receive a working API key immediately.</p></div>
+      <div class="card"><h3>Login</h3><p>Access your dashboard and queue downloads with your API key.</p></div>
+      <div class="card"><h3>Dashboard</h3><p>View usage, plan limits, and queue new video downloads.</p></div>
+    </div>
+
+    <div class="section-label">How it works</div>
+    <div class="grid3">
+      <div class="card"><h3>1. Register</h3><p>Sign up quickly and get an API key, ready for use.</p></div>
+      <div class="card"><h3>2. Login</h3><p>Authenticate with your email and password using JWT.</p></div>
+      <div class="card"><h3>3. Queue download</h3><p>Paste a TikTok URL and start the download process.</p></div>
+      <div class="card"><h3>4. Manage settings</h3><p>Update profile details and change your password anytime.</p></div>
+    </div>
+
+    <footer class="footer">
+      <div>© 2026 TikTokSnap</div>
+      <div><a href="/register.html">Create account</a> · <a href="/login.html">Login</a> · <a href="/dashboard.html">Dashboard</a></div>
+    </footer>
+  </div>
+  <script src="app.js"></script>
+</body>
+</html>

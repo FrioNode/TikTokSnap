@@ -45,7 +45,7 @@ function requireAuth(req, res, next) {
 // body: { email, password, phone? }
 // ─────────────────────────────────────────
 router.post('/register', async (req, res) => {
-  const { email, password, phone } = req.body
+  const { email, password, phone, label } = req.body
 
   if (!email || !password) {
     return res.status(400).json({ error: 'email and password are required' })

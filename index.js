@@ -1,6 +1,7 @@
 require('dotenv').config()
 const express = require('express')
 const fs = require('fs')
+const path = require('path')
 const { exec } = require('child_process')
 const rateLimit = require('express-rate-limit')
 const downloadQueue = require('./queue')
@@ -8,15 +9,11 @@ const db = require('./db')
 
 const { router: authRouter, requireAuth } = require('./auth')
 
-const checkAndLog = db.db.transaction((key, limit, data) => {
-  const used = db.countToday(key)
-  if (used >= limit) return false
-  db.log(data)
-  return true
-})
+const checkAndLog = db.checkAndLog
 
 const app = express()
 app.use(express.json())
+app.use(express.static(path.join(__dirname, 'public')))
 app.use('/auth', authRouter)
 
 const limiter = rateLimit({
@@ -36,7 +33,7 @@ app.use((req, res, next) => {
   const keyRecord = db.getKey(key)
   if (!keyRecord) return res.status(401).json({ error: 'Invalid API key' })
 
-  const allowed = checkAndLog(key, keyRecord.limit_day, {
+  const allowed = checkAndLog(keyRecord.user_id, keyRecord.limit_day, {
     api_key: key,
     endpoint: req.path,
     url: req.body?.url || null,
@@ -44,6 +41,7 @@ app.use((req, res, next) => {
     status: 'ok',
     ip: req.ip
   })
+
 
   if (!allowed) {
     return res.status(429).json({

@@ -1,0 +1,83 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1.0">
+  <title>Dashboard - TikTokSnap</title>
+  <link rel="stylesheet" href="app.css">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@latest/tabler-icons.min.css">
+</head>
+<body>
+  <div class="wrap">
+    <nav>
+      <div class="logo">
+        <div class="logo-icon"><i class="ti ti-brand-tiktok" style="font-size:18px"></i></div>
+        TikTokSnap
+      </div>
+      <div class="nav-links">
+        <a href="/" class="link-btn">Home</a>
+        <a href="/settings.html" class="auth-only">Settings</a>
+        <button class="link-btn auth-only" id="logoutBtn">Logout</button>
+        <button class="toggle" id="themeBtn" onclick="toggleTheme()">
+          <i class="ti ti-moon" id="themeIcon"></i> <span id="themeLabel">Dark mode</span>
+        </button>
+      </div>
+    </nav>
+
+    <div class="top-bar">
+      <div>
+        <div class="page-title">Dashboard</div>
+        <p class="sub">Monitor usage, plan limits, and queue new downloads from one place.</p>
+      </div>
+      <button class="btn-secondary" onclick="logout()">Logout</button>
+    </div>
+
+    <div id="notice" class="notice hidden"></div>
+
+    <div class="info-block">
+      <h3>Welcome back, <span id="welcomeName">user</span></h3>
+      <p>Your API key is shown below. Use it with x-api-key when calling `/download`, `/audio`, or `/info`.</p>
+      <div class="mono" id="apiKeyValue">Loading…</div>
+    </div>
+
+    <div class="stats" id="usageStats">
+      <div class="stat"><div class="stat-n">--</div><div class="stat-l">Downloads</div></div>
+      <div class="stat"><div class="stat-n">--</div><div class="stat-l">API calls</div></div>
+      <div class="stat"><div class="stat-n">--</div><div class="stat-l">Used today</div></div>
+    </div>
+
+    <div class="grid2">
+      <div class="card">
+        <h3>Plan</h3>
+        <p id="planValue">Loading…</p>
+      </div>
+      <div class="card">
+        <h3>Remaining today</h3>
+        <p id="remainingValue">Loading…</p>
+      </div>
+      <div class="card">
+        <h3>Used today</h3>
+        <p id="usedValue">Loading…</p>
+      </div>
+    </div>
+
+    <div class="section-label">Queue a video</div>
+    <div class="form-card">
+      <form id="downloadForm">
+        <div class="field"><label for="url">TikTok URL</label><input id="url" name="url" type="url" placeholder="https://www.tiktok.com/@user/video/123" required></div>
+        <div class="field"><label for="quality">Quality</label>
+          <select id="quality" name="quality">
+            <option value="best">Best</option>
+            <option value="720">720p</option>
+            <option value="480">480p</option>
+          </select>
+        </div>
+        <div class="form-actions"><button class="btn-primary" type="submit">Queue download</button></div>
+      </form>
+    </div>
+
+    <footer class="footer"><div>Manage your account settings in Settings.</div><div><a href="/settings.html">Go to Settings</a></div></footer>
+  </div>
+  <script src="app.js"></script>
+</body>
+</html>

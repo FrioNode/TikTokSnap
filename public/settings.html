@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1.0">
+  <title>Settings - TikTokSnap</title>
+  <link rel="stylesheet" href="app.css">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@latest/tabler-icons.min.css">
+</head>
+<body>
+  <div class="wrap">
+    <nav>
+      <div class="logo">
+        <div class="logo-icon"><i class="ti ti-brand-tiktok" style="font-size:18px"></i></div>
+        TikTokSnap
+      </div>
+      <div class="nav-links">
+        <a href="/dashboard.html" class="link-btn">Dashboard</a>
+        <button class="link-btn" id="logoutBtn">Logout</button>
+        <button class="toggle" id="themeBtn" onclick="toggleTheme()">
+          <i class="ti ti-moon" id="themeIcon"></i> <span id="themeLabel">Dark mode</span>
+        </button>
+      </div>
+    </nav>
+
+    <div class="top-bar">
+      <div>
+        <div class="page-title">Settings</div>
+        <p class="sub">Update your profile, rotate your API key, or change your password.</p>
+      </div>
+      <button class="btn-secondary" onclick="logout()">Logout</button>
+    </div>
+
+    <div id="notice" class="notice hidden"></div>
+
+    <div class="form-card">
+      <div class="page-title" style="font-size:1.2rem;margin-bottom:1rem">Profile</div>
+      <div class="info-block"><h3>Email</h3><p id="profileEmail">Loading…</p></div>
+      <form id="profileForm">
+        <div class="field"><label for="phone">Phone</label><input id="phone" name="phone" type="tel" autocomplete="tel"></div>
+        <div class="field"><label for="label">Display name</label><input id="label" name="label" type="text" autocomplete="name"></div>
+        <div class="form-actions"><button class="btn-primary" type="submit">Save profile</button></div>
+      </form>
+    </div>
+
+    <div class="form-card" style="margin-top:1.5rem">
+      <div class="page-title" style="font-size:1.2rem;margin-bottom:1rem">Change password</div>
+      <form id="passwordForm">
+        <div class="field"><label for="current_password">Current password</label><input id="current_password" name="current_password" type="password" autocomplete="current-password" required></div>
+        <div class="field"><label for="new_password">New password</label><input id="new_password" name="new_password" type="password" autocomplete="new-password" minlength="8" required></div>
+        <div class="form-actions"><button class="btn-primary" type="submit">Change password</button></div>
+      </form>
+    </div>
+
+    <footer class="footer"><div>Changes are saved with your token.</div><div><a href="/dashboard.html">Back to Dashboard</a></div></footer>
+  </div>
+  <script src="app.js"></script>
+</body>
+</html>
