@@ -239,6 +239,8 @@ async function loadSettings() {
   if (!requireAuthPage()) return
   const profileForm = document.getElementById('profileForm')
   const passwordForm = document.getElementById('passwordForm')
+  const rotateKeyBtn = document.getElementById('rotateKeyBtn')
+  const currentApiKey = document.getElementById('currentApiKey')
 
   try {
     const res = await fetch('/auth/me', { headers: authHeaders() })
@@ -247,8 +249,28 @@ async function loadSettings() {
     document.getElementById('profileEmail').textContent = data.email
     document.getElementById('phone').value = data.phone || ''
     document.getElementById('label').value = data.label || ''
+    currentApiKey.textContent = data.api_key || 'No key'
   } catch (err) {
     logout()
+  }
+
+  if (rotateKeyBtn) {
+    rotateKeyBtn.addEventListener('click', async () => {
+      hideNotice()
+      if (!confirm('Rotate your API key? The old key will become invalid immediately.')) return
+      try {
+        const res = await fetch('/auth/rotate-key', {
+          method: 'POST', headers: authHeaders()
+        })
+        const data = await res.json()
+        if (!res.ok) return showNotice(data.error || 'Could not rotate key', 'error')
+        currentApiKey.textContent = data.api_key
+        setAuth(data.api_key, state.token)
+        showNotice('API key rotated successfully', 'success')
+      } catch (err) {
+        showNotice('Unable to rotate key.', 'error')
+      }
+    })
   }
 
   if (profileForm) {
