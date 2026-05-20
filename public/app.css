@@ -125,4 +125,5 @@ h1{font-size:3.5rem;font-weight:700;line-height:1.1;margin-bottom:.75rem;letter-
   .inline-form select{width:100%}
   .inline-form button{width:100%}
 }
+@media(max-width:768px){.top-row-grid { grid-template-columns: 1fr !important; }}
 @media(max-width:480px){.wrap{padding:0.75rem;margin:0}.hero{padding:1rem 0}.nav{margin-bottom:2rem}.page-title{font-size:1.3rem}h1{font-size:1.8rem}.form-card{padding:1.5rem;border-radius:16px}.field{margin-bottom:1rem}.stats{grid-template-columns:1fr}.card{padding:1rem}}

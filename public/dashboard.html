@@ -43,7 +43,7 @@
     <div id="notice" class="notice hidden"></div>
 
     <!-- Queue form -->
-    <div class="form-card" style="margin-bottom:1.25rem">
+    <div class="form-card" style="margin-bottom:1.25rem;max-width:100%">
       <div style="display:flex;align-items:center;gap:8px;margin-bottom:12px">
         <span class="badge badge-purple"><i class="ti ti-circle-plus"></i> New download</span>
       </div>
@@ -71,48 +71,75 @@
       </div>
     </div>
 
-    <!-- API key + health -->
-    <div class="info-block">
-      <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px">
-        <span class="badge badge-accent"><i class="ti ti-key"></i> API access</span>
+    <!-- ── Row 1: API access | Usage stats ── -->
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:1.25rem;margin-bottom:1.25rem;align-items:start">
+
+      <!-- API access -->
+      <div class="info-block" style="height:100%">
+        <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;margin-bottom:10px">
+          <span class="badge badge-accent"><i class="ti ti-key"></i> API access</span>
+          <h3 style="font-size:13px;font-weight:500;margin:0">Welcome back, <span id="welcomeName">user</span></h3>
+        </div>
+        <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+          <span style="font-size:11px;color:var(--tx3);white-space:nowrap">YOUR API KEY</span>
+          <div class="mono" id="apiKeyValue" style="flex:1;min-width:0">Loading…</div>
+          <div class="health" id="backendHealth"><i class="ti ti-loader"></i></div>
+        </div>
       </div>
-      <h3>Welcome back, <span id="welcomeName">user</span></h3>
-      <p>Use your API key with <code>x-api-key</code> when calling <code>/download</code>, <code>/audio</code>, or <code>/info</code>.</p>
-      <div style="display:flex;gap:12px;align-items:center;margin-top:10px;flex-wrap:wrap">
-        <div class="mono" id="apiKeyValue">Loading…</div>
-        <div class="health" id="backendHealth">
-          <i class="ti ti-loader"></i> Checking backend…
+
+<!-- Usage stats — 3 tiny boxes side by side -->
+<!-- Usage stats — 3 tiny boxes side by side -->
+      <div>
+        <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px">
+          <span class="badge badge-green"><i class="ti ti-chart-bar"></i> Usage</span>
+        </div>
+        <div id="usageStats" style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px">
+          <div class="stat" style="padding:.9rem;text-align:center">
+            <div class="stat-icon" style="color:var(--teal)"><i class="ti ti-download"></i></div>
+            <div class="stat-n" style="font-size:1.3rem">0</div>
+            <div class="stat-l" style="font-size:11px">Downloads</div>
+          </div>
+          <div class="stat" style="padding:.9rem;text-align:center">
+            <div class="stat-icon" style="color:var(--accent)"><i class="ti ti-api"></i></div>
+            <div class="stat-n" style="font-size:1.3rem">0</div>
+            <div class="stat-l" style="font-size:11px">API calls</div>
+          </div>
+          <div class="stat" style="padding:.9rem;text-align:center">
+            <div class="stat-icon" style="color:var(--amber)"><i class="ti ti-clock"></i></div>
+            <div class="stat-n" style="font-size:1.3rem">0</div>
+            <div class="stat-l" style="font-size:11px">Errors</div>
+          </div>
         </div>
       </div>
     </div>
 
-    <!-- Usage stats -->
-    <div style="display:flex;align-items:center;gap:8px;margin:1.5rem 0 .75rem">
-      <span class="badge badge-green"><i class="ti ti-chart-bar"></i> Usage</span>
+    <!-- ── Row 2: Plan details ── -->
+    <div style="display:flex;align-items:center;gap:8px;margin:0 0 .75rem">
+      <span class="badge badge-pink"><i class="ti ti-star"></i> Plan details</span>
     </div>
-    <div class="stats" id="usageStats">
-      <div class="stat">
-        <div class="stat-icon" style="color:var(--teal)"><i class="ti ti-download"></i></div>
-        <div class="stat-n">--</div>
-        <div class="stat-l">Downloads</div>
+    <div class="grid2" style="margin-bottom:1.5rem">
+      <div class="card">
+        <span class="badge badge-accent" style="margin-bottom:8px"><i class="ti ti-rocket"></i> Plan</span>
+        <h3>Current plan</h3>
+        <p id="planValue">Loading…</p>
       </div>
-      <div class="stat">
-        <div class="stat-icon" style="color:var(--accent)"><i class="ti ti-api"></i></div>
-        <div class="stat-n">--</div>
-        <div class="stat-l">API calls</div>
+      <div class="card">
+        <span class="badge badge-green" style="margin-bottom:8px"><i class="ti ti-refresh"></i> Remaining</span>
+        <h3>Remaining today</h3>
+        <p id="remainingValue">Loading…</p>
       </div>
-      <div class="stat">
-        <div class="stat-icon" style="color:var(--amber)"><i class="ti ti-clock"></i></div>
-        <div class="stat-n">--</div>
-        <div class="stat-l">Used today</div>
+      <div class="card">
+        <span class="badge badge-amber" style="margin-bottom:8px"><i class="ti ti-clock"></i> Used</span>
+        <h3>Used today</h3>
+        <p id="usedValue">Loading…</p>
       </div>
     </div>
 
-    <!-- Recent activity -->
-    <div style="display:flex;align-items:center;gap:8px;margin:1.5rem 0 .75rem">
+    <!-- ── Row 3: Activity table ── -->
+    <div style="display:flex;align-items:center;gap:8px;margin:0 0 .75rem">
       <span class="badge badge-coral"><i class="ti ti-activity"></i> Recent activity</span>
     </div>
-    <div class="card" style="padding:0;overflow:auto;">
+    <div class="card" style="padding:0;overflow:auto;margin-bottom:2rem">
       <table class="data-table">
         <thead>
           <tr>
@@ -133,28 +160,6 @@
           </tr>
         </tbody>
       </table>
-    </div>
-
-    <!-- Plan info cards -->
-    <div style="display:flex;align-items:center;gap:8px;margin:1.5rem 0 .75rem">
-      <span class="badge badge-pink"><i class="ti ti-star"></i> Plan details</span>
-    </div>
-    <div class="grid2">
-      <div class="card">
-        <span class="badge badge-accent" style="margin-bottom:8px"><i class="ti ti-rocket"></i> Plan</span>
-        <h3>Current plan</h3>
-        <p id="planValue">Loading…</p>
-      </div>
-      <div class="card">
-        <span class="badge badge-green" style="margin-bottom:8px"><i class="ti ti-refresh"></i> Remaining</span>
-        <h3>Remaining today</h3>
-        <p id="remainingValue">Loading…</p>
-      </div>
-      <div class="card">
-        <span class="badge badge-amber" style="margin-bottom:8px"><i class="ti ti-clock"></i> Used</span>
-        <h3>Used today</h3>
-        <p id="usedValue">Loading…</p>
-      </div>
     </div>
 
     <footer class="footer">
