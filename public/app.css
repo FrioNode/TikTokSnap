@@ -102,6 +102,8 @@ h1{font-size:3.5rem;font-weight:700;line-height:1.1;margin-bottom:.75rem;letter-
 .health-dot{width:10px;height:10px;border-radius:999px;background:var(--tx3);display:inline-block}
 .health-ok .health-dot{background:var(--success)}
 .health-fail .health-dot{background:var(--warn)}
+.settings-grid .form-card {max-width: 100%;  margin: 0;}
+.settings-full {max-width:100%;margin:1.25rem 0 0;}
 
 /* Inline form styling to match cards and dark mode */
 .inline-form input, .inline-form select, .inline-form button{

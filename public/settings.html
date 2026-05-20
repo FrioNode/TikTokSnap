@@ -9,6 +9,7 @@
 </head>
 <body>
   <div class="wrap">
+
     <nav>
       <div class="logo">
         <div class="logo-icon"><i class="ti ti-brand-tiktok" style="font-size:18px"></i></div>
@@ -18,48 +19,145 @@
         <a href="/dashboard.html" class="link-btn">Dashboard</a>
         <button class="link-btn" id="logoutBtn">Logout</button>
         <button class="toggle" id="themeBtn" onclick="toggleTheme()">
-          <i class="ti ti-moon" id="themeIcon"></i> <span id="themeLabel">Dark mode</span>
+          <i class="ti ti-moon" id="themeIcon"></i>
+          <span id="themeLabel">Dark mode</span>
         </button>
       </div>
     </nav>
 
+    <!-- Top bar -->
     <div class="top-bar">
       <div>
-        <div class="page-title">Settings</div>
+        <span class="badge badge-accent" style="margin-bottom:8px;display:inline-flex">
+          <i class="ti ti-settings"></i> Settings
+        </span>
+        <div class="page-title">Account settings</div>
         <p class="sub">Update your profile, rotate your API key, or change your password.</p>
       </div>
-      <button class="btn-secondary" onclick="logout()">Logout</button>
+      <button class="btn-secondary" onclick="logout()">
+        <i class="ti ti-logout"></i> Logout
+      </button>
     </div>
 
     <div id="notice" class="notice hidden"></div>
 
-    <div class="form-card">
-      <div class="page-title" style="font-size:1.2rem;margin-bottom:1rem">Profile</div>
-      <div class="info-block"><h3>Email</h3><p id="profileEmail">Loading…</p></div>
-      <form id="profileForm">
-        <div class="field"><label for="phone">Phone</label><input id="phone" name="phone" type="tel" autocomplete="tel"></div>
-        <div class="field"><label for="label">Display name</label><input id="label" name="label" type="text" autocomplete="name"></div>
-        <div class="form-actions"><button class="btn-primary" type="submit">Save profile</button></div>
-      </form>
+    <!-- Two column layout on desktop -->
+    <div class="settings-grid" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:1.25rem;align-items:start">
+
+      <!-- Profile -->
+      <div class="form-card">
+        <span class="badge badge-teal" style="margin-bottom:12px;display:inline-flex">
+          <i class="ti ti-user"></i> Profile
+        </span>
+        <div class="info-block" style="margin-bottom:1rem">
+          <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px">
+            <i class="ti ti-mail" style="color:var(--tx3);font-size:15px"></i>
+            <span style="font-size:12px;color:var(--tx3)">Logged in as</span>
+          </div>
+          <div class="mono" id="profileEmail">Loading…</div>
+        </div>
+        <form id="profileForm">
+          <div class="field">
+            <label for="phone">
+              <i class="ti ti-phone" style="font-size:13px"></i> Phone
+            </label>
+            <input id="phone" name="phone" type="tel" autocomplete="tel" placeholder="+1 234 567 8900">
+          </div>
+          <div class="field">
+            <label for="label">
+              <i class="ti ti-id-badge" style="font-size:13px"></i> Display name
+            </label>
+            <input id="label" name="label" type="text" autocomplete="name" placeholder="Your name or company">
+          </div>
+          <div class="form-actions">
+            <button class="btn-primary" type="submit">
+              <i class="ti ti-device-floppy"></i> Save profile
+            </button>
+          </div>
+        </form>
+      </div>
+
+      <!-- Change password -->
+      <div class="form-card">
+        <span class="badge badge-amber" style="margin-bottom:12px;display:inline-flex">
+          <i class="ti ti-lock"></i> Password
+        </span>
+        <p style="font-size:13px;color:var(--tx2);margin-bottom:1rem;line-height:1.6">
+          Choose a strong password of at least 8 characters. You will receive a confirmation email after changing it.
+        </p>
+        <form id="passwordForm">
+          <div class="field">
+            <label for="current_password">
+              <i class="ti ti-lock" style="font-size:13px"></i> Current password
+            </label>
+            <input id="current_password" name="current_password" type="password" autocomplete="current-password" required>
+          </div>
+          <div class="field">
+            <label for="new_password">
+              <i class="ti ti-lock-open" style="font-size:13px"></i> New password
+            </label>
+            <input id="new_password" name="new_password" type="password" autocomplete="new-password" minlength="8" required>
+          </div>
+          <div class="form-actions">
+            <button class="btn-primary" type="submit">
+              <i class="ti ti-key"></i> Change password
+            </button>
+          </div>
+        </form>
+      </div>
+
     </div>
 
-    <div class="form-card" style="margin-top:1.5rem">
-      <div class="page-title" style="font-size:1.2rem;margin-bottom:1rem">API Key</div>
-      <div class="info-block"><h3>Current key</h3><div class="mono" id="currentApiKey" style="word-break:break-all">Loading…</div></div>
-      <p style="color:var(--tx3);font-size:0.9rem;margin-bottom:1rem">Rotating your key will invalidate the old one but keep your usage count unchanged.</p>
-      <div class="form-actions"><button class="btn-primary" type="button" id="rotateKeyBtn">Rotate API key</button></div>
+    <!-- API Key — full width -->
+    <div class="form-card" style="margin-top:1.25rem">
+      <span class="badge badge-purple" style="margin-bottom:12px;display:inline-flex">
+        <i class="ti ti-api"></i> API Key
+      </span>
+      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:1rem;align-items:center">
+        <div>
+          <div style="font-size:12px;color:var(--tx3);margin-bottom:6px">
+            <i class="ti ti-key" style="font-size:13px"></i> Current key
+          </div>
+          <div class="mono" id="currentApiKey" style="word-break:break-all">Loading…</div>
+        </div>
+        <div>
+          <p style="font-size:13px;color:var(--tx2);margin-bottom:12px;line-height:1.6">
+            Rotating invalidates your old key immediately. Your usage count carries over — no free limit reset.
+          </p>
+          <div class="form-actions">
+            <button class="btn-primary" type="button" id="rotateKeyBtn">
+              <i class="ti ti-refresh"></i> Rotate API key
+            </button>
+          </div>
+        </div>
+      </div>
     </div>
 
-    <div class="form-card" style="margin-top:1.5rem">
-      <div class="page-title" style="font-size:1.2rem;margin-bottom:1rem">Change password</div>
-      <form id="passwordForm">
-        <div class="field"><label for="current_password">Current password</label><input id="current_password" name="current_password" type="password" autocomplete="current-password" required></div>
-        <div class="field"><label for="new_password">New password</label><input id="new_password" name="new_password" type="password" autocomplete="new-password" minlength="8" required></div>
-        <div class="form-actions"><button class="btn-primary" type="submit">Change password</button></div>
-      </form>
+    <!-- Danger zone -->
+    <div class="form-card" style="margin-top:1.25rem;border:0.5px solid var(--coral-bg)">
+      <span class="badge badge-coral" style="margin-bottom:12px;display:inline-flex">
+        <i class="ti ti-alert-triangle"></i> Danger zone
+      </span>
+      <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px">
+        <div>
+          <div style="font-size:13px;font-weight:500;color:var(--tx);margin-bottom:4px">Delete account</div>
+          <div style="font-size:12px;color:var(--tx3)">Permanently deletes your account and API key. This cannot be undone.</div>
+        </div>
+        <button class="btn-secondary" style="border-color:var(--coral);color:var(--coral)" id="deleteAccountBtn">
+          <i class="ti ti-trash"></i> Delete account
+        </button>
+      </div>
     </div>
 
-    <footer class="footer"><div>Changes are saved with your token.</div><div><a href="/dashboard.html">Back to Dashboard</a></div></footer>
+    <footer class="footer">
+      <div style="font-size:12px;color:var(--tx3)">Changes are saved with your token.</div>
+      <div>
+        <a href="/dashboard.html">
+          <i class="ti ti-arrow-left" style="font-size:13px"></i> Back to Dashboard
+        </a>
+      </div>
+    </footer>
+
   </div>
   <script src="app.js"></script>
 </body>
