@@ -50,61 +50,88 @@ function requireAuth(req, res, next) {
 // POST /auth/register
 // body: { email, password, phone? }
 // ─────────────────────────────────────────
+const OTP_TTL_MS = 10 * 60 * 1000  // 10 minutes
+
 router.post('/register', async (req, res) => {
   const { email, password, phone, label } = req.body
 
-  if (!email || !password) {
+  if (!email || !password)
     return res.status(400).json({ error: 'email and password are required' })
-  }
-  if (password.length < 8) {
+  if (password.length < 8)
     return res.status(400).json({ error: 'Password must be at least 8 characters' })
-  }
-  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email))
     return res.status(400).json({ error: 'Invalid email format' })
-  }
 
-  // Check if email already exists
-  const existing = db.getUserByEmail(email.toLowerCase())
-  if (existing) {
+  const normalizedEmail = email.toLowerCase()
+
+  if (db.getUserByEmail(normalizedEmail))
     return res.status(409).json({ error: 'Email already registered' })
-  }
 
   try {
     const hashed = await bcrypt.hash(password, SALT_ROUNDS)
+    const otp = Math.floor(100000 + Math.random() * 900000).toString() // 6-digit
+    const expiresAt = Date.now() + OTP_TTL_MS
 
-    // Create user
-    const result = db.createUser({
-      email: email.toLowerCase(),
+    // Upsert — so re-sending OTP works cleanly
+    db.upsertPending({
+      email: normalizedEmail,
+      password: hashed,
       phone: phone || null,
       label: label || null,
-      password: hashed,
+      otp,
+      expires_at: expiresAt
+    })
+
+    mailer.sendOtp({ to: normalizedEmail, otp })
+
+    res.status(202).json({ message: 'OTP sent — check your email' })
+  } catch (err) {
+    console.error(err)
+    res.status(500).json({ error: 'Could not send OTP' })
+  }
+})
+
+// verify and ceate reall account
+
+router.post('/verify-email', async (req, res) => {
+  const { email, otp } = req.body
+
+  if (!email || !otp)
+    return res.status(400).json({ error: 'email and otp are required' })
+
+  const pending = db.getPending(email.toLowerCase())
+
+  if (!pending)
+    return res.status(404).json({ error: 'No pending registration for this email' })
+
+  if (Date.now() > pending.expires_at)
+    return res.status(410).json({ error: 'OTP expired — please register again' })
+
+  if (pending.otp !== otp)
+    return res.status(400).json({ error: 'Invalid OTP' })
+
+  try {
+    // Now safe to create the real user
+    const result = db.createUser({
+      email: pending.email,
+      phone: pending.phone,
+      label: pending.label,
+      password: pending.password,  // already hashed
       plan: 'free'
     })
 
     const userId = result.lastInsertRowid
-
-    // Auto-generate API key on registration
     const key = generateKey()
-    db.createKey({
-      key,
-      user_id: userId,
-      plan: 'free',
-      limit_day: db.PLAN_LIMITS.free
-    })
+    db.createKey({ key, user_id: userId, plan: 'free', limit_day: db.PLAN_LIMITS.free })
+
+    db.deletePending(pending.email)  // clean up
 
     const user = db.getUserById(userId)
     const token = signToken(user)
-    
-  // send welcome email with API key
-    mailer.sendWelcome({ to: email, name: label, apiKey: key })
 
-    res.status(201).json({
-      message: 'Account created',
-      token,
-      api_key: key,
-      plan: 'free',
-      limit_day: db.PLAN_LIMITS.free
-    })
+    mailer.sendWelcome({ to: pending.email, name: pending.label, apiKey: key })
+
+    res.status(201).json({ message: 'Account created', token, api_key: key, plan: 'free', limit_day: db.PLAN_LIMITS.free })
   } catch (err) {
     console.error(err)
     res.status(500).json({ error: 'Registration failed' })

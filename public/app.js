@@ -107,7 +107,14 @@ async function loginPage() {
 
 async function registerPage() {
   const form = document.getElementById('registerForm')
+  const otpStep = document.getElementById('otpStep')
+  const otpForm = document.getElementById('otpForm')
+  const resendBtn = document.getElementById('resendOtp')
   if (!form) return
+
+  let pendingEmail = ''
+
+  // Step 1 — submit registration, get OTP sent
   form.addEventListener('submit', async e => {
     e.preventDefault()
     hideNotice()
@@ -117,20 +124,104 @@ async function registerPage() {
     const label = form.label.value.trim()
     if (!email || !password) return showNotice('Email and password are required', 'error')
 
+    const btn = form.querySelector('button[type=submit]')
+    btn.disabled = true
+    btn.textContent = 'Sending OTP…'
+
     try {
       const res = await fetch('/auth/register', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email, password, phone, label })
       })
       const data = await res.json()
-      if (!res.ok) return showNotice(data.error || 'Could not register', 'error')
-      setAuth(data.api_key, data.token)
-      showNotice('Account created. Redirecting…', 'success')
-      setTimeout(() => location.href = '/dashboard.html', 900)
+      if (!res.ok) {
+        btn.disabled = false
+        btn.textContent = 'Create account'
+        return showNotice(data.error || 'Could not register', 'error')
+      }
+      pendingEmail = email
+      form.classList.add('hidden')
+      otpStep.classList.remove('hidden')
+      showNotice(`We sent a 6-digit code to ${email}`, 'success')
     } catch (err) {
+      btn.disabled = false
+      btn.textContent = 'Create account'
       showNotice('Registration failed. Try again.', 'error')
     }
   })
+
+  // Step 2 — verify OTP
+  if (otpForm) {
+    otpForm.addEventListener('submit', async e => {
+      e.preventDefault()
+      hideNotice()
+      const otp = otpForm.otp.value.trim()
+      if (!otp || otp.length !== 6) return showNotice('Enter the 6-digit code from your email', 'error')
+
+      const btn = otpForm.querySelector('button[type=submit]')
+      btn.disabled = true
+      btn.textContent = 'Verifying…'
+
+      try {
+        const res = await fetch('/auth/verify-email', {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ email: pendingEmail, otp })
+        })
+        const data = await res.json()
+        if (!res.ok) {
+          btn.disabled = false
+          btn.textContent = 'Verify'
+          if (res.status === 410) {
+            otpStep.classList.add('hidden')
+            form.classList.remove('hidden')
+            form.querySelector('button[type=submit]').disabled = false
+            form.querySelector('button[type=submit]').textContent = 'Create account'
+            return showNotice('Code expired — please register again', 'error')
+          }
+          return showNotice(data.error || 'Invalid code', 'error')
+        }
+        setAuth(data.api_key, data.token)
+        showNotice('Account created. Redirecting…', 'success')
+        setTimeout(() => location.href = '/dashboard.html', 900)
+      } catch (err) {
+        btn.disabled = false
+        btn.textContent = 'Verify'
+        showNotice('Verification failed. Try again.', 'error')
+      }
+    })
+  }
+
+  // Resend OTP
+  if (resendBtn) {
+    resendBtn.addEventListener('click', async () => {
+      hideNotice()
+      resendBtn.disabled = true
+      resendBtn.textContent = 'Sending…'
+      try {
+        const formData = {
+          email: form.email.value.trim(),
+          password: form.password.value.trim(),
+          phone: form.phone.value.trim(),
+          label: form.label.value.trim()
+        }
+        const res = await fetch('/auth/register', {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(formData)
+        })
+        const data = await res.json()
+        if (!res.ok) return showNotice(data.error || 'Could not resend', 'error')
+        showNotice('New code sent — check your email', 'success')
+        if (otpForm) otpForm.otp.value = ''
+      } catch (err) {
+        showNotice('Could not resend. Try again.', 'error')
+      } finally {
+        setTimeout(() => {
+          resendBtn.disabled = false
+          resendBtn.textContent = 'Resend code'
+        }, 5000)
+      }
+    })
+  }
 }
 
 async function loadDashboard() {

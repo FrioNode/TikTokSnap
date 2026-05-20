@@ -1,3 +1,12 @@
+CREATE TABLE IF NOT EXISTS pending_registrations (
+    email      TEXT PRIMARY KEY,
+    password   TEXT NOT NULL,
+    phone      TEXT,
+    label      TEXT,
+    otp        TEXT NOT NULL,
+    expires_at INTEGER NOT NULL
+  );
+    
   CREATE TABLE IF NOT EXISTS users (
   id          INTEGER PRIMARY KEY AUTOINCREMENT,
   email       TEXT UNIQUE NOT NULL,

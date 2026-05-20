@@ -13,6 +13,15 @@ db.pragma('synchronous = NORMAL')
 
 // ── Schema (from schema.sql) ─────────────
 db.exec(`
+  CREATE TABLE IF NOT EXISTS pending_registrations (
+    email      TEXT PRIMARY KEY,
+    password   TEXT NOT NULL,
+    phone      TEXT,
+    label      TEXT,
+    otp        TEXT NOT NULL,
+    expires_at INTEGER NOT NULL
+  );
+
   CREATE TABLE IF NOT EXISTS users (
     id          INTEGER PRIMARY KEY AUTOINCREMENT,
     email       TEXT UNIQUE NOT NULL,
@@ -55,6 +64,21 @@ db.exec(`
 
 // ── Prepared statements ──────────────────
 const stmts = {
+// Pending registrations (OTP flow)
+  upsertPending: db.prepare(`
+    INSERT INTO pending_registrations (email, password, phone, label, otp, expires_at)
+    VALUES (@email, @password, @phone, @label, @otp, @expires_at)
+    ON CONFLICT(email) DO UPDATE SET
+      password   = excluded.password,
+      phone      = excluded.phone,
+      label      = excluded.label,
+      otp        = excluded.otp,
+      expires_at = excluded.expires_at
+  `),
+  getPending:    db.prepare(`SELECT * FROM pending_registrations WHERE email = ?`),
+  deletePending: db.prepare(`DELETE FROM pending_registrations WHERE email = ?`),
+  pruneExpired:  db.prepare(`DELETE FROM pending_registrations WHERE expires_at < ?`),
+
   // Auth
   createUser:     db.prepare(`INSERT INTO users (email, phone, label, password, plan) VALUES (@email, @phone, @label, @password, @plan)`),
   getUserByEmail: db.prepare(`SELECT * FROM users WHERE email = ? AND active = 1`),
@@ -156,6 +180,10 @@ const rotateKey = db.transaction((userId, newKey) => {
 })
 
 module.exports = {
+  upsertPending:  (data)  => stmts.upsertPending.run(data),
+  getPending:     (email) => stmts.getPending.get(email),
+  deletePending:  (email) => stmts.deletePending.run(email),
+  pruneExpired:   ()      => stmts.pruneExpired.run(Date.now()),
   createUser:     (data)    => stmts.createUser.run(data),
   getUserByEmail: (email)   => stmts.getUserByEmail.get(email),
   getUserById:    (id)      => stmts.getUserById.get(id),

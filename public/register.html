@@ -29,6 +29,8 @@
         <p class="sub">Sign up and start downloading TikTok videos with a named, watermark-free file.</p>
       </div></div>
       <div id="notice" class="notice hidden"></div>
+
+      <!-- Step 1: account details -->
       <form id="registerForm">
         <div class="field"><label for="email">Email</label><input id="email" name="email" type="email" autocomplete="email" required></div>
         <div class="field"><label for="password">Password</label><input id="password" name="password" type="password" autocomplete="new-password" minlength="8" required></div>
@@ -39,6 +41,28 @@
           <a class="btn-secondary" href="/login.html">Already have account</a>
         </div>
       </form>
+
+      <!-- Step 2: OTP verification (hidden until step 1 succeeds) -->
+      <div id="otpStep" class="hidden">
+        <div style="display:flex;align-items:center;gap:8px;margin-bottom:1rem">
+          <span class="badge badge-teal" style="display:inline-flex"><i class="ti ti-mail-check"></i> Verify your email</span>
+        </div>
+        <p style="color:var(--tx2);font-size:14px;margin-bottom:1.25rem;line-height:1.6">
+          Enter the 6-digit code we sent to your inbox. The code expires in 10 minutes.
+        </p>
+        <form id="otpForm">
+          <div class="field">
+            <label for="otp">Verification code</label>
+            <input id="otp" name="otp" type="text" inputmode="numeric" pattern="\d{6}" maxlength="6"
+              autocomplete="one-time-code" placeholder="123456" required
+              style="letter-spacing:0.3em;font-size:1.4rem;text-align:center">
+          </div>
+          <div class="form-actions" style="justify-content:space-between;align-items:center">
+            <button type="button" id="resendOtp" class="btn-secondary" style="font-size:13px">Resend code</button>
+            <button class="btn-primary" type="submit">Verify</button>
+          </div>
+        </form>
+      </div>
     </div>
 
     <footer class="footer"><div>Already registered?</div><div><a href="/login.html">Login</a></div></footer>

@@ -305,5 +305,8 @@ app.get('/queue/stats', async (req, res) => {
 
 app.get('/health', (_, res) => res.json({ status: 'ok' }))
 
+// configure automatic prune
+setInterval(() => db.pruneExpired(), 60 * 60 * 1000)
+
 const PORT = process.env.PORT || 3000
 app.listen(PORT, () => console.log(`🚀 TikTok API on port ${PORT}`))
