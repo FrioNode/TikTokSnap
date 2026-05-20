@@ -9,6 +9,7 @@
     "update-ytdlp": "pip install -U yt-dlp"
   },
   "dependencies": {
+    "@getbrevo/brevo": "^5.0.4",
     "bcrypt": "^6.0.0",
     "better-sqlite3": "^12.10.0",
     "bull": "^4.16.5",

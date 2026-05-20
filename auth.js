@@ -2,6 +2,7 @@ const express = require('express')
 const bcrypt = require('bcrypt')
 const jwt = require('jsonwebtoken')
 const db = require('./db')
+const mailer = require('./mailer')
 
 const router = express.Router()
 const JWT_SECRET = process.env.JWT_SECRET 
@@ -93,6 +94,9 @@ router.post('/register', async (req, res) => {
 
     const user = db.getUserById(userId)
     const token = signToken(user)
+    
+  // send welcome email with API key
+    mailer.sendWelcome({ to: email, name: label, apiKey: key })
 
     res.status(201).json({
       message: 'Account created',
@@ -176,7 +180,7 @@ router.post('/rotate-key', requireAuth, (req, res) => {
   if (!result.ok) {
     return res.status(429).json({ error: result.error })
   }
-
+  mailer.sendKeyRotated({ to: req.user.email, newKey: result.key })
   res.json({
     message: 'Key rotated successfully',
     api_key: result.key,
@@ -202,6 +206,7 @@ router.post('/change-password', requireAuth, async (req, res) => {
   try {
     const hashed = await bcrypt.hash(new_password, SALT_ROUNDS)
     db.updatePassword({ id: req.user.id, password: hashed })
+    mailer.sendPasswordChanged({ to: req.user.email })
     res.json({ message: 'Password changed successfully' })
   } catch (err) {
     console.error(err)

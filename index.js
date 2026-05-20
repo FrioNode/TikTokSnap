@@ -107,6 +107,12 @@ app.post('/download', async (req, res) => {
 
   try {
     const job = await downloadQueue.add({ url, quality, type: 'video' })
+    
+    // Update the usage log with the job_id
+    db.db.prepare(`UPDATE usage SET job_id = ? WHERE id = (
+      SELECT id FROM usage WHERE api_key = ? AND endpoint = '/download' AND job_id IS NULL ORDER BY created_at DESC LIMIT 1
+    )`).run(job.id, req.apiKey)
+    
     const queueDepth = await downloadQueue.getWaitingCount()
 
     res.status(202).json({
@@ -115,7 +121,7 @@ app.post('/download', async (req, res) => {
       position: queueDepth,
       pollUrl: `/job/${job.id}`,
       plan: req.keyRecord.plan,
-      remainingToday: req.keyRecord.limit_day - db.countToday(req.apiKey)
+      remainingToday: req.keyRecord.limit_day - db.countToday(req.keyRecord.user_id)
     })
   } catch (err) {
     res.status(500).json({ error: 'Failed to queue job', detail: err.message })
@@ -137,7 +143,7 @@ app.post('/audio', async (req, res) => {
       jobId: job.id,
       status: 'queued',
       pollUrl: `/job/${job.id}`,
-      remainingToday: req.keyRecord.limit_day - db.countToday(req.apiKey)
+      remainingToday: req.keyRecord.limit_day - db.countToday(req.keyRecord.user_id)
     })
   } catch (err) {
     res.status(500).json({ error: 'Failed to queue job' })
