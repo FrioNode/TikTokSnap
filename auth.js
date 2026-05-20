@@ -172,6 +172,70 @@ router.post('/login', async (req, res) => {
 })
 
 // ─────────────────────────────────────────
+// POST /auth/reset-password
+// ─────────────────────────────────────────
+router.post('/reset-password', (req, res) => {
+  const { email } = req.body
+  if (!email) return res.status(400).json({ error: 'email is required' })
+
+  const user = db.getUserByEmail(email.toLowerCase())
+  if (!user) return res.status(200).json({ message: 'If that email is registered, a reset link has been sent' })
+
+  const resetToken = jwt.sign(
+    { id: user.id, email: user.email, purpose: 'reset' },
+    JWT_SECRET,
+    { expiresIn: '1h' }
+  )
+  
+  const resetLink = `${process.env.FRONTEND_URL}/set-new-password.html?token=${resetToken}`
+  mailer.sendPasswordReset({ to: user.email, label: user.label, link: resetLink })
+
+  res.json({ message: 'If that email is registered, a reset link has been sent' })
+})
+
+// ─────────────────────────────────────────
+// Helper: verify reset token (reusable)
+// ─────────────────────────────────────────
+function verifyResetToken(token) {
+  try {
+    const decoded = jwt.verify(token, JWT_SECRET)
+    if (decoded.purpose !== 'reset') throw new Error('Invalid token type')
+    const user = db.getUserById(decoded.id)
+    if (!user || user.email !== decoded.email) throw new Error('User mismatch')
+    return { valid: true, user, decoded }
+  } catch (err) {
+    return { valid: false, error: err.message === 'jwt expired' ? 'Link expired' : 'Invalid token' }
+  }
+}
+
+// ─────────────────────────────────────────
+// POST /auth/set-new-password
+// ─────────────────────────────────────────
+router.post('/set-new-password', async (req, res) => {
+  const { token, new_password } = req.body
+  
+  if (!token || !new_password) {
+    return res.status(400).json({ error: 'Token and new password required' })
+  }
+  if (new_password.length < 8) {
+    return res.status(400).json({ error: 'Password must be at least 8 characters' })
+  }
+  
+  const verification = verifyResetToken(token)
+  if (!verification.valid) {
+    return res.status(401).json({ error: verification.error })
+  }
+  
+  const hashed = await bcrypt.hash(new_password, 10)
+  db.updatePassword({ id: verification.user.id, password: hashed })
+  
+  mailer.sendPasswordChanged({ to: verification.user.email })
+  res.json({ message: 'Password reset successfully! You can now login.' })
+})
+
+
+// requires: Authorization
+// ─────────────────────────────────────────
 // GET /auth/me  →  profile + usage stats
 // requires: Authorization: Bearer <token>
 // ─────────────────────────────────────────

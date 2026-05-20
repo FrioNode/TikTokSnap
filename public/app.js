@@ -224,6 +224,116 @@ async function registerPage() {
   }
 }
 
+// Reset password
+
+// ─────────────────────────────────────────
+// Forgot Password Page (new HTML page)
+// ─────────────────────────────────────────
+async function forgotPasswordPage() {
+  const form = document.getElementById('forgotPasswordForm')
+  if (!form) return
+  
+  form.addEventListener('submit', async e => {
+    e.preventDefault()
+    hideNotice()
+    const email = form.email.value.trim()
+    if (!email) return showNotice('Email is required', 'error')
+    
+    const btn = form.querySelector('button[type=submit]')
+    btn.disabled = true
+    btn.textContent = 'Sending...'
+    
+    try {
+      const res = await fetch('/auth/reset-password', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email })
+      })
+      const data = await res.json()
+      btn.disabled = false
+      btn.textContent = 'Send reset link'
+      
+      if (!res.ok) return showNotice(data.error || 'Something went wrong', 'error')
+      
+      // Always show success message (even if email doesn't exist - security)
+      showNotice('If that email is registered, a reset link has been sent', 'success')
+      form.reset()
+      
+      // Optional: redirect to login after 3 seconds
+      setTimeout(() => location.href = '/login.html', 3000)
+    } catch (err) {
+      btn.disabled = false
+      btn.textContent = 'Send reset link'
+      showNotice('Unable to send reset link. Try again.', 'error')
+    }
+  })
+}
+
+// ─────────────────────────────────────────
+// Set New Password Page (from email link)
+// ─────────────────────────────────────────
+async function setNewPasswordPage() {
+  // Get token from URL
+  const urlParams = new URLSearchParams(window.location.search)
+  const token = urlParams.get('token')
+  
+  if (!token) {
+    showNotice('Invalid reset link. Please request a new one.', 'error')
+    setTimeout(() => location.href = '/login.html', 2000)
+    return
+  }
+  
+  const form = document.getElementById('setPasswordForm')
+  if (!form) return
+  
+  form.addEventListener('submit', async e => {
+    e.preventDefault()
+    hideNotice()
+    
+    const new_password = form.new_password.value.trim()
+    const confirm_password = form.confirm_password.value.trim()
+    
+    if (!new_password || !confirm_password) {
+      return showNotice('Both password fields are required', 'error')
+    }
+    
+    if (new_password.length < 8) {
+      return showNotice('Password must be at least 8 characters', 'error')
+    }
+    
+    if (new_password !== confirm_password) {
+      return showNotice('Passwords do not match', 'error')
+    }
+    
+    const btn = form.querySelector('button[type=submit]')
+    btn.disabled = true
+    btn.textContent = 'Resetting password...'
+    
+    try {
+      const res = await fetch('/auth/set-new-password', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ token, new_password })
+      })
+      
+      const data = await res.json()
+      
+      if (!res.ok) {
+        btn.disabled = false
+        btn.textContent = 'Reset password'
+        return showNotice(data.error || 'Failed to reset password', 'error')
+      }
+      
+      showNotice('Password reset successfully! Redirecting to login...', 'success')
+      setTimeout(() => location.href = '/login.html', 2000)
+    } catch (err) {
+      btn.disabled = false
+      btn.textContent = 'Reset password'
+      showNotice('Unable to reset password. Try again.', 'error')
+    }
+  })
+}
+// load dashboard
 async function loadDashboard() {
   if (!requireAuthPage()) return
   const statusEl = document.getElementById('dashboardStatus')
@@ -525,6 +635,10 @@ window.addEventListener('DOMContentLoaded', () => {
     loadDashboard()
   } else if (page === '/settings.html') {
     loadSettings()
+  } else if (page === '/forgot-password.html') {
+    forgotPasswordPage()  // ✅ ADD THIS
+  } else if (page === '/set-new-password.html') {
+    setNewPasswordPage()  // ✅ ADD THIS
   }
 
   const logoutBtn = document.getElementById('logoutBtn')

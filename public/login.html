@@ -32,6 +32,14 @@
       <form id="loginForm">
         <div class="field"><label for="email">Email</label><input id="email" name="email" type="email" autocomplete="email" required></div>
         <div class="field"><label for="password">Password</label><input id="password" name="password" type="password" autocomplete="current-password" required></div>
+        
+        <!-- ✅ Forgot password link added here -->
+        <div style="text-align:right; margin-top:-0.5rem; margin-bottom:0.5rem">
+          <a href="/forgot-password.html" style="color:var(--tx2); font-size:12px; text-decoration:none;">
+            <i class="ti ti-key"></i> Forgot password?
+          </a>
+        </div>
+        
         <div class="form-actions">
           <button class="btn-primary" type="submit">Login</button>
           <a class="btn-secondary" href="/register.html">Create account</a>

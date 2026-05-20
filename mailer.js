@@ -172,11 +172,29 @@ async function sendOtp({ to, otp }) {
   })
 }
 
+// ─────────────────────────────────────────
+// 7. Send password reset
+// ─────────────────────────────────────────
+async function sendPasswordReset({ to, label, link }) {
+  await sendMail({
+    to,
+    subject: `Reset your TikTokSnap password, ${label || 'there'}`,
+    html: base(`
+      ${pill('🔑 Reset your password', '#FDE2E2', '#791010')}
+      ${h2('Password reset requested')}
+      ${p(`We received a request to reset the password for your account (${to}). Click the button below to set a new password. This link expires in 1 hour.`)}
+      ${btn('Reset password →', link)}
+      ${p('If you did not request a password reset, please ignore this email or contact support if you have concerns.')}
+    `)
+  })
+}
+
 module.exports = {
   sendWelcome,
   sendKeyRotated,
   sendPasswordChanged,
   sendUsageWarning,
   sendLimitReached,
-  sendOtp
+  sendOtp,
+  sendPasswordReset
 }
