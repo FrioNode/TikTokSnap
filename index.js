@@ -23,6 +23,31 @@ const limiter = rateLimit({
 })
 app.use(limiter)
 
+// ─────────────────────────────────────────
+// Clean TikTok URLs by extracting the core URL from messy copied text
+// ─────────────────────────────────────────
+function cleanTikTokUrl(rawUrl) {
+  if (!rawUrl) return null
+  const urlPattern = /(https?:\/\/)(www\.)?(tiktok\.com\/@[\w.]+\/video\/\d+|vm\.tiktok\.com\/\w+|vt\.tiktok\.com\/\w+)/i
+  const match = rawUrl.match(urlPattern)
+  
+  if (match) {
+    let cleanUrl = match[0]
+    try {
+      const urlObj = new URL(cleanUrl)
+      cleanUrl = `${urlObj.origin}${urlObj.pathname}`
+    } catch (e) {
+      // If URL parsing fails, just use the matched URL
+    }
+    return cleanUrl
+  }
+  return rawUrl
+}
+
+function isValidTikTokUrl(url) {
+  return /tiktok\.com\/@[\w.]+\/video\/\d+|vm\.tiktok\.com\/\w+|vt\.tiktok\.com\/\w+/.test(url)
+}
+
 // ── Auth + usage tracking middleware ────
 app.use((req, res, next) => {
   if (req.path === '/health') return next()
@@ -40,12 +65,11 @@ app.use((req, res, next) => {
   const allowed = checkAndLog(keyRecord.user_id, keyRecord.limit_day, {
     api_key: key,
     endpoint: req.path,
-    url: req.body?.url || null,
+    url: req.body?.url ? cleanTikTokUrl(req.body.url) : null,
     job_id: req.params?.id || null,
     status: 'ok',
     ip: req.ip
   })
-
 
   if (!allowed) {
     return res.status(429).json({
@@ -62,10 +86,6 @@ app.use((req, res, next) => {
 
   next()
 })
-
-function isValidTikTokUrl(url) {
-  return /tiktok\.com\/@[\w.]+\/video\/\d+|vm\.tiktok\.com\/\w+|vt\.tiktok\.com\/\w+/.test(url)
-}
 
 // ─────────────────────────────────────────
 // POST /info
@@ -108,10 +128,11 @@ app.post('/download', async (req, res) => {
   try {
     const job = await downloadQueue.add({ url, quality, type: 'video' })
     
-    // Update the usage log with the job_id
-    db.db.prepare(`UPDATE usage SET job_id = ? WHERE id = (
-      SELECT id FROM usage WHERE api_key = ? AND endpoint = '/download' AND job_id IS NULL ORDER BY created_at DESC LIMIT 1
-    )`).run(job.id, req.apiKey)
+// Update the usage log with the job_id and cleaned URL
+  const cleanUrl = cleanTikTokUrl(url)
+  db.db.prepare(`UPDATE usage SET job_id = ?, url = ? WHERE id = (
+    SELECT id FROM usage WHERE api_key = ? AND endpoint = '/download' AND job_id IS NULL ORDER BY created_at DESC LIMIT 1
+  )`).run(job.id, cleanUrl, req.apiKey)
     
     const queueDepth = await downloadQueue.getWaitingCount()
 
@@ -309,4 +330,6 @@ app.get('/health', (_, res) => res.json({ status: 'ok' }))
 setInterval(() => db.pruneExpired(), 60 * 60 * 1000)
 
 const PORT = process.env.PORT || 3000
-app.listen(PORT, () => console.log(`🚀 TikTok API on port ${PORT}`))
+app.listen(PORT, "0.0.0.0", () =>
+  console.log(`🚀 TikTok API on port ${PORT}`)
+);

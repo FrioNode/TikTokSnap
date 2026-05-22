@@ -362,7 +362,7 @@ async function loadDashboard() {
             <p style="font-size:0.9rem;color:var(--tx3);margin-bottom:6px">${job.status === 'active' ? 'Downloading...' : job.status === 'completed' ? 'Ready to download' : job.status === 'failed' ? 'Failed' : 'Waiting in queue...'}</p>
             ${job.progress !== undefined ? `<div style="width:100%;height:6px;background:var(--bg);border-radius:3px;overflow:hidden"><div style="height:100%;background:var(--accent);width:${job.progress}%;transition:width .3s"></div></div>` : ''}
           </div>
-          ${job.status === 'completed' ? `<a href="${job.downloadUrl}" class="btn-primary" style="white-space:nowrap;text-decoration:none;padding:7px 12px;font-size:12px" download>Download</a>` : ''}
+         ${job.status === 'completed' ? `<a href="${job.downloadUrl}" style="display:inline-block;background:#3b82f6;color:white;padding:7px 14px;border-radius:12px;text-decoration:none;font-size:12px;font-weight:500;white-space:nowrap;transition:background 0.2s;" onmouseover="this.style.background='#2563eb'" onmouseout="this.style.background='#3b82f6'" download>Download</a>` : ''}
         </div>
       </div>
     `).join('')
