@@ -349,48 +349,74 @@ async function loadDashboard() {
   let pollInterval = null
   const JOBS_KEY = 'tiktok_jobs'
 
-  async function renderJobs() {
+async function renderJobs() {
     if (jobs.size === 0) {
-      jobsList.innerHTML = '<div style="grid-column:1/-1;color:var(--tx3);font-size:14px;padding:2rem;text-align:center">No downloads yet. Queue a video to get started.</div>'
-      return
+        jobsList.innerHTML = '<div style="grid-column:1/-1;color:var(--tx3);font-size:14px;padding:2rem;text-align:center">No downloads yet. Queue a video to get started.</div>'
+        return
     }
     jobsList.innerHTML = Array.from(jobs.values()).map(job => `
-      <div class="card" style="border-color:var(--bd2)">
+      <div class="card job-card" data-job-id="${job.jobId}" style="border-color:var(--bd2)">
         <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px">
           <div style="flex:1">
             <h3 style="font-size:0.95rem">${job.status === 'completed' ? '✅' : job.status === 'failed' ? '❌' : '⏳'} Job ${job.jobId}</h3>
             <p style="font-size:0.9rem;color:var(--tx3);margin-bottom:6px">${job.status === 'active' ? 'Downloading...' : job.status === 'completed' ? 'Ready to download' : job.status === 'failed' ? 'Failed' : 'Waiting in queue...'}</p>
             ${job.progress !== undefined ? `<div style="width:100%;height:6px;background:var(--bg);border-radius:3px;overflow:hidden"><div style="height:100%;background:var(--accent);width:${job.progress}%;transition:width .3s"></div></div>` : ''}
           </div>
-         ${job.status === 'completed' ? `<a href="${job.downloadUrl}" style="display:inline-block;background:#3b82f6;color:white;padding:7px 14px;border-radius:12px;text-decoration:none;font-size:12px;font-weight:500;white-space:nowrap;transition:background 0.2s;" onmouseover="this.style.background='#2563eb'" onmouseout="this.style.background='#3b82f6'" download>Download</a>` : ''}
+          ${job.status === 'completed' ? `<button class="btn-download" data-job-id="${job.jobId}" data-download-url="${job.downloadUrl}" style="display:inline-block;background:#3b82f6;color:white;padding:7px 14px;border-radius:12px;border:none;font-size:12px;font-weight:500;white-space:nowrap;cursor:pointer">Download</button>` : ''}
         </div>
       </div>
     `).join('')
-  }
+    
+    // Attach download event listeners
+    document.querySelectorAll('.btn-download').forEach(btn => {
+        btn.addEventListener('click', async (e) => {
+            const jobId = btn.dataset.jobId
+            const downloadUrl = btn.dataset.downloadUrl
+            try {
+                // Trigger download
+                const a = document.createElement('a')
+                a.href = downloadUrl
+                a.download = `tiktok_${jobId}.mp4`
+                document.body.appendChild(a)
+                a.click()
+                document.body.removeChild(a)
+                
+                // Remove job from UI and storage
+                jobs.delete(jobId)
+                removePersistedJobId(jobId)
+                await renderJobs()
+                showNotice('Download started!', 'success')
+            } catch (err) {
+                console.error('Download failed:', err)
+                showNotice('Download failed', 'error')
+            }
+        })
+    })
+}
 
-    async function pollJobs() {
+async function pollJobs() {
     if (jobs.size === 0) return
     
     for (const [jobId, job] of jobs) {
-        // Don't poll completed or failed jobs
-        if (job.status === 'completed' || job.status === 'failed') continue
-        
         try {
-        const res = await fetch(`/job/${jobId}`, { headers: authHeaders() })
-        const data = await res.json()
-        if (res.ok) {
-            jobs.set(jobId, { ...job, ...data })
-            if (data.status === 'completed' || data.status === 'failed') {
-            removePersistedJobId(jobId)
+            const res = await fetch(`/job/${jobId}`, { headers: authHeaders() })
+            const data = await res.json()
+            if (res.ok) {
+                jobs.set(jobId, { ...job, ...data })
+                await renderJobs()
+            } else if (res.status === 404) {
+                // Job expired on backend (10 minutes passed)
+                jobs.delete(jobId)
+                removePersistedJobId(jobId)
+                await renderJobs()
+                showNotice(`Job ${jobId} has expired`, 'info')
             }
-            await renderJobs() // Re-render after each job update
-        }
         } catch (err) {
-        console.error(`Failed to poll job ${jobId}`, err)
+            console.error(`Failed to poll job ${jobId}`, err)
         }
     }
     await renderJobs()
-    }
+}
 
   try {
     const res = await fetch('/auth/me', { headers: authHeaders() })
@@ -488,34 +514,35 @@ async function loadDashboard() {
     })
   }
 
- // restore persisted job IDs AND fetch their current status
-    (async function restoreJobs() {
-    try {
-        const stored = JSON.parse(localStorage.getItem(JOBS_KEY) || '[]')
-        if (Array.isArray(stored) && stored.length > 0) {
-        // Fetch current status for all stored jobs
-        for (const id of stored) {
-            try {
-            const res = await fetch(`/job/${id}`, { headers: authHeaders() })
-            const data = await res.json()
-            if (res.ok) {
-                jobs.set(String(id), { jobId: String(id), ...data })
-                if (data.status === 'completed' || data.status === 'failed') {
-                removePersistedJobId(id)
-                }
-            } else {
-                jobs.set(String(id), { jobId: String(id), status: 'queued', progress: 0 })
-            }
-            } catch (err) {
-            jobs.set(String(id), { jobId: String(id), status: 'queued', progress: 0 })
-            }
-        }
-        }
-    } catch (err) {
-        console.error('Failed to restore jobs from storage', err)
-    }
-    await renderJobs()
-    })()
+  // restore persisted job IDs AND fetch their current status
+  (async function restoreJobs() {
+      try {
+          const stored = JSON.parse(localStorage.getItem(JOBS_KEY) || '[]')
+          if (Array.isArray(stored) && stored.length > 0) {
+              for (const id of stored) {
+                  try {
+                      const res = await fetch(`/job/${id}`, { headers: authHeaders() })
+                      const data = await res.json()
+                      if (res.ok) {
+                          // Keep ALL jobs, including completed/failed
+                          jobs.set(String(id), { jobId: String(id), ...data })
+                          // DON'T remove from localStorage here!
+                      } else if (res.status === 404) {
+                          // Job expired on backend - remove from localStorage
+                          removePersistedJobId(id)
+                      } else {
+                          jobs.set(String(id), { jobId: String(id), status: 'queued', progress: 0 })
+                      }
+                  } catch (err) {
+                      jobs.set(String(id), { jobId: String(id), status: 'queued', progress: 0 })
+                  }
+              }
+          }
+      } catch (err) {
+          console.error('Failed to restore jobs from storage', err)
+      }
+      await renderJobs()
+  })()
 
   function persistJobId(id) {
     try {
