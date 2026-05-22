@@ -4,10 +4,10 @@ const fs = require('fs')
 const path = require('path')
 const { exec } = require('child_process')
 const rateLimit = require('express-rate-limit')
-const downloadQueue = require('./queue')
-const db = require('./db')
+const downloadQueue = require('./setup/queue')
+const db = require('./setup/db')
 
-const { router: authRouter, requireAuth } = require('./auth')
+const { router: authRouter, requireAuth } = require('./setup/auth')
 
 const checkAndLog = db.checkAndLog
 
@@ -55,6 +55,8 @@ app.use((req, res, next) => {
   if (req.path.startsWith('/job/') || req.path.startsWith('/file/')) return next()
   // Auth routes use Bearer tokens, not x-api-key
   if (req.path.startsWith('/auth/')) return next()
+  // ⭐ SKIP admin routes - they use x-admin-key instead
+  if (req.path.startsWith('/admin/')) return next()
 
   const key = req.headers['x-api-key']
   if (!key) return res.status(401).json({ error: 'Missing x-api-key header' })
@@ -309,6 +311,65 @@ app.delete('/admin/keys/:key', (req, res) => {
   }
   db.revokeKey(req.params.key)
   res.json({ revoked: req.params.key })
+})
+
+// ─────────────────────────────────────────
+// POST /admin/users/:userId/plan - Change user plan
+// protected by ADMIN_KEY header
+// ─────────────────────────────────────────
+app.post('/admin/users/:userId/plan', (req, res) => {
+  const adminKey = req.headers['x-admin-key']
+  if (adminKey !== process.env.ADMIN_KEY) {
+    return res.status(403).json({ error: 'Forbidden' })
+  }
+  
+  const { userId } = req.params
+  const { plan } = req.body
+  
+  if (!plan) {
+    return res.status(400).json({ error: 'plan is required' })
+  }
+  
+  const result = db.changeUserPlan(parseInt(userId), plan)
+  
+  if (!result.ok) {
+    return res.status(400).json({ error: result.error })
+  }
+  
+  res.json(result)
+})
+
+// ─────────────────────────────────────────
+// GET /admin/users - List all users with their plans
+// protected by ADMIN_KEY header
+// ─────────────────────────────────────────
+app.get('/admin/users', (req, res) => {
+  const adminKey = req.headers['x-admin-key']
+  if (adminKey !== process.env.ADMIN_KEY) {
+    return res.status(403).json({ error: 'Forbidden' })
+  }
+  
+  const users = db.getAllUsersWithPlans()
+  res.json({ users, plan_limits: db.PLAN_LIMITS })
+})
+
+// ─────────────────────────────────────────
+// GET /admin/plans - List available plans and their limits
+// ─────────────────────────────────────────
+app.get('/admin/plans', (req, res) => {
+  const adminKey = req.headers['x-admin-key']
+  if (adminKey !== process.env.ADMIN_KEY) {
+    return res.status(403).json({ error: 'Forbidden' })
+  }
+  
+  res.json({
+    plans: [
+      { name: 'free', daily_limit: 10, monthly_limit: 200, price: '$0.00/month', features: ['Video download only'] },
+      { name: 'pro', daily_limit: 500, monthly_limit: 15000, price: '$9.99/month', features: ['Video + audio + metadata', 'Basic bulk download', 'Email support'] },
+      { name: 'business', daily_limit: 5000, monthly_limit: 150000, price: '$49.99/month', features: ['Everything + unlimited bulk', 'Webhooks', 'Advanced analytics', 'Priority support'] },
+      { name: 'enterprise', daily_limit: 999999, monthly_limit: 'Unlimited', price: 'Custom', features: ['SLA', 'Custom integrations', '24/7 dedicated manager'] }
+    ]
+  })
 })
 
 // ─────────────────────────────────────────

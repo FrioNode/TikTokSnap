@@ -1,0 +1,257 @@
+### Variables
+@baseUrl = http://localhost:3000
+@adminKey = nagato
+
+### ========================================
+### AUTH ENDPOINTS (No API key required)
+### ========================================
+
+### 1. Register a new user
+POST {{baseUrl}}/auth/register
+Content-Type: application/json
+
+{
+  "email": "test@example.com",
+  "password": "password123",
+  "phone": "+1234567890",
+  "label": "Test User"
+}
+
+### 2. Verify email OTP (use OTP from email)
+POST {{baseUrl}}/auth/verify-email
+Content-Type: application/json
+
+{
+  "email": "test@example.com",
+  "otp": "123456"
+}
+
+### 3. Login (get your API key and JWT token)
+POST {{baseUrl}}/auth/login
+Content-Type: application/json
+
+{
+  "email": "test@example.com",
+  "password": "password123"
+}
+
+### Save returned api_key and token as variables after login
+# @name loginResponse
+POST {{baseUrl}}/auth/login
+Content-Type: application/json
+
+{
+  "email": "test@example.com",
+  "password": "password123"
+}
+
+### 4. Request password reset
+POST {{baseUrl}}/auth/reset-password
+Content-Type: application/json
+
+{
+  "email": "test@example.com"
+}
+
+### 5. Set new password (use token from email)
+POST {{baseUrl}}/auth/set-new-password
+Content-Type: application/json
+
+{
+  "token": "reset-token-from-email",
+  "new_password": "newpassword123"
+}
+
+### 6. Get current user profile (requires JWT)
+GET {{baseUrl}}/auth/me
+Authorization: Bearer YOUR_JWT_TOKEN_HERE
+
+### 7. Update user profile (requires JWT)
+POST {{baseUrl}}/auth/update-profile
+Authorization: Bearer YOUR_JWT_TOKEN_HERE
+Content-Type: application/json
+
+{
+  "phone": "+9876543210",
+  "label": "Updated User Name"
+}
+
+### 8. Change password (requires JWT)
+POST {{baseUrl}}/auth/change-password
+Authorization: Bearer YOUR_JWT_TOKEN_HERE
+Content-Type: application/json
+
+{
+  "current_password": "password123",
+  "new_password": "newpassword456"
+}
+
+### 9. Rotate API key (requires JWT)
+POST {{baseUrl}}/auth/rotate-key
+Authorization: Bearer YOUR_JWT_TOKEN_HERE
+
+### ========================================
+### API ENDPOINTS (Require API key)
+### ========================================
+
+### Replace with your actual API key from login
+@apiKey = tk_1779267913436_4kpqzm98
+
+### 10. Get video information
+POST {{baseUrl}}/info
+x-api-key: {{apiKey}}
+Content-Type: application/json
+
+{
+  "url": "https://www.tiktok.com/@user/video/1234567890"
+}
+
+### 11. Queue video download
+POST {{baseUrl}}/download
+x-api-key: {{apiKey}}
+Content-Type: application/json
+
+{
+  "url": "https://www.tiktok.com/@user/video/1234567890",
+  "quality": "best"
+}
+
+### 12. Queue audio download
+POST {{baseUrl}}/audio
+x-api-key: {{apiKey}}
+Content-Type: application/json
+
+{
+  "url": "https://www.tiktok.com/@user/video/1234567890"
+}
+
+### 13. Check job status (replace JOB_ID)
+GET {{baseUrl}}/job/JOB_ID_HERE
+x-api-key: {{apiKey}}
+
+### 14. Download file (replace JOB_ID)
+GET {{baseUrl}}/file/JOB_ID_HERE
+x-api-key: {{apiKey}}
+
+### 15. Get current user stats
+GET {{baseUrl}}/me
+x-api-key: {{apiKey}}
+
+### ========================================
+### PUBLIC ENDPOINTS (No authentication)
+### ========================================
+
+### 16. Health check
+GET {{baseUrl}}/health
+
+### 17. Queue stats
+GET {{baseUrl}}/queue/stats
+x-api-key: {{apiKey}}
+
+### ========================================
+### ADMIN ENDPOINTS (Require admin key)
+### ========================================
+
+### 18. Get all admin stats
+GET {{baseUrl}}/admin/stats
+x-admin-key: {{adminKey}}
+
+### 19. Create a new API key
+POST {{baseUrl}}/admin/keys
+x-admin-key: {{adminKey}}
+Content-Type: application/json
+
+{
+  "label": "New User",
+  "plan": "pro"
+}
+
+### 20. Revoke/Delete an API key (replace KEY)
+DELETE {{baseUrl}}/admin/keys/tk_1234567890_abc123
+x-admin-key: {{adminKey}}
+
+### 21. Change user plan (replace USER_ID)
+POST {{baseUrl}}/admin/users/1/plan
+x-admin-key: {{adminKey}}
+Content-Type: application/json
+
+{
+  "plan": "pro"
+}
+
+### 22. List all users with their plans
+GET {{baseUrl}}/admin/users
+x-admin-key: {{adminKey}}
+
+### 23. List available plans and limits
+GET {{baseUrl}}/admin/plans
+x-admin-key: {{adminKey}}
+
+### ========================================
+### TEST WORKFLOW (Copy-paste friendly)
+### ========================================
+
+### Step 1: Register
+POST {{baseUrl}}/auth/register
+Content-Type: application/json
+
+{
+  "email": "workflow@example.com",
+  "password": "test1234",
+  "label": "Workflow Test"
+}
+
+### Step 2: Login and copy api_key from response
+POST {{baseUrl}}/auth/login
+Content-Type: application/json
+
+{
+  "email": "workflow@example.com",
+  "password": "test1234"
+}
+
+### Step 3: Queue a download (paste your api_key below)
+POST {{baseUrl}}/download
+x-api-key: PASTE_YOUR_API_KEY_HERE
+Content-Type: application/json
+
+{
+  "url": "https://www.tiktok.com/@scout2015/video/1234567890123456789",
+  "quality": "best"
+}
+
+### Step 4: Poll job until status = "completed" (paste jobId from above)
+GET {{baseUrl}}/job/JOB_ID_FROM_STEP_3
+x-api-key: PASTE_YOUR_API_KEY_HERE
+
+### Step 5: Download the file (paste jobId when completed)
+GET {{baseUrl}}/file/JOB_ID_FROM_STEP_3
+x-api-key: PASTE_YOUR_API_KEY_HERE
+
+### Step 6: Check your usage stats
+GET {{baseUrl}}/me
+x-api-key: PASTE_YOUR_API_KEY_HERE
+
+### ========================================
+### CLEAN URLs TEST (Mobile copy-paste)
+### ========================================
+
+### Test with messy TikTok URL (should be cleaned automatically)
+POST {{baseUrl}}/download
+x-api-key: {{apiKey}}
+Content-Type: application/json
+
+{
+  "url": "https://vm.tiktok.com/ZS9Y5kVMs3rcC-Wjd2k/ This post is shared via TikTok Lite. Download TikTok Lite to enjoy more posts: https://www.tiktok.com/tiktoklite",
+  "quality": "best"
+}
+
+### Test with PC URL (query params should be stripped)
+POST {{baseUrl}}/download
+x-api-key: {{apiKey}}
+Content-Type: application/json
+
+{
+  "url": "https://www.tiktok.com/@fabiana_v_carmo/video/7620636021603962133?is_from_webapp=1&sender_device=pc",
+  "quality": "best"
+}

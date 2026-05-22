@@ -2,7 +2,7 @@ const Database = require('better-sqlite3')
 const path = require('path')
 const fs = require('fs')
 
-const DB_DIR = process.env.DB_PATH || './data'
+const DB_DIR = process.env.DB_PATH || '../data'
 if (!fs.existsSync(DB_DIR)) fs.mkdirSync(DB_DIR)
 
 const db = new Database(path.join(DB_DIR, 'usage.db'))
@@ -38,7 +38,7 @@ db.exec(`
     key         TEXT PRIMARY KEY,
     user_id     INTEGER NOT NULL REFERENCES users(id),
     plan        TEXT DEFAULT 'free',
-    limit_day   INTEGER DEFAULT 30,
+    limit_day   INTEGER DEFAULT 10,
     active      INTEGER DEFAULT 1,
     rotated_at  DATETIME,
     created_at  DATETIME DEFAULT CURRENT_TIMESTAMP
@@ -62,6 +62,14 @@ db.exec(`
   CREATE INDEX IF NOT EXISTS idx_usage_user ON usage(user_id);
 `)
 
+// ── Updated Plan Limits based on realistic pricing ──
+const PLAN_LIMITS = { 
+  free: 10,        // 10 requests/day
+  pro: 500,        // 500 requests/day ($9.99/month)
+  business: 5000,  // 5,000 requests/day ($49.99/month)
+  enterprise: 999999  // Unlimited (custom pricing)
+}
+
 // ── Prepared statements ──────────────────
 const stmts = {
 // Pending registrations (OTP flow)
@@ -84,6 +92,9 @@ const stmts = {
   getUserByEmail: db.prepare(`SELECT * FROM users WHERE email = ? AND active = 1`),
   getUserById:    db.prepare(`SELECT * FROM users WHERE id = ? AND active = 1`),
 
+  // ✅ SAFE - exclude password field
+  getAllUsers:    db.prepare(`SELECT id, email, phone, plan, active, avatar, label, created_at FROM users WHERE active = 1 ORDER BY created_at DESC`),
+
   // Keys
   createKey:     db.prepare(`INSERT INTO api_keys (key, user_id, plan, limit_day) VALUES (@key, @user_id, @plan, @limit_day)`),
   getKey:        db.prepare(`SELECT * FROM api_keys WHERE key = ? AND active = 1`),
@@ -94,6 +105,16 @@ const stmts = {
   // update user details
   updateProfile:  db.prepare(`UPDATE users SET phone = @phone, label = @label WHERE id = @id`),
   updatePassword: db.prepare(`UPDATE users SET password = @password WHERE id = @id`),
+  
+  // ── Admin: Change user plan ──────────────────
+  updateUserPlan: db.prepare(` UPDATE users SET plan = @plan WHERE id = @id AND active = 1 `),
+  
+  // ── Admin: Update API key limits when plan changes ──
+  updateKeyLimits: db.prepare(`
+    UPDATE api_keys 
+    SET plan = @plan, limit_day = @limit_day 
+    WHERE user_id = @user_id AND active = 1
+  `),
 
   // Usage — counts against user_id, not key
   logRequest: db.prepare(`
@@ -128,21 +149,31 @@ const stmts = {
   allUsersStats: db.prepare(`
     SELECT
       u.id, u.label, u.email, u.phone, u.plan, u.created_at,
-      k.key, k.active as key_active, k.rotated_at,
+      k.key, k.active as key_active, k.rotated_at, k.limit_day as daily_limit,
       COUNT(us.id)                                                      as total_requests,
       SUM(CASE WHEN date(us.created_at) = date('now') THEN 1 ELSE 0 END) as today
     FROM users u
-    LEFT JOIN api_keys k  ON k.user_id = u.id
+    LEFT JOIN api_keys k  ON k.user_id = u.id AND k.active = 1
     LEFT JOIN usage    us ON us.user_id = u.id
+    GROUP BY u.id
+    ORDER BY u.created_at DESC
+  `),
+ 
+  allKeysStats: db.prepare(`
+    SELECT
+      u.id, u.label, u.email, u.phone, u.plan, u.created_at,
+      k.key, k.active as key_active, k.rotated_at,
+      COUNT(us.id) as total_requests,
+      SUM(CASE WHEN date(us.created_at) = date('now') THEN 1 ELSE 0 END) as today
+    FROM users u
+    LEFT JOIN api_keys k ON k.user_id = u.id
+    LEFT JOIN usage us ON us.user_id = u.id
     GROUP BY u.id
     ORDER BY total_requests DESC
   `)
+
 }
 
-// ── Plan limits ──────────────────────────
-const PLAN_LIMITS = { free: 30, starter: 200, pro: 1000, unlimited: 99999 }
-
-// ── Atomic check + log ───────────────────
 // ── Atomic check + log ───────────────────
 const checkAndLog = db.transaction((userId, limit, data) => {
   const used = stmts.countToday.get(userId).total
@@ -170,7 +201,7 @@ const rotateKey = db.transaction((userId, newKey) => {
   }
 
   const user = stmts.getUserById.get(userId)
-  const limit = PLAN_LIMITS[user.plan] || 30
+  const limit = PLAN_LIMITS[user.plan] || 10
 
   stmts.deactivateKey.run(userId)
   stmts.createKey.run({ key: newKey, user_id: userId, plan: user.plan, limit_day: limit })
@@ -178,6 +209,46 @@ const rotateKey = db.transaction((userId, newKey) => {
 
   return { ok: true, key: newKey }
 })
+
+// ── Admin: Change user plan (atomic transaction) ──
+const changeUserPlan = db.transaction((userId, newPlan) => {
+  // Validate plan exists
+  if (!PLAN_LIMITS[newPlan]) {
+    return { ok: false, error: `Invalid plan. Must be one of: ${Object.keys(PLAN_LIMITS).join(', ')}` }
+  }
+  
+  // Get user
+  const user = stmts.getUserById.get(userId)
+  if (!user) {
+    return { ok: false, error: 'User not found' }
+  }
+  
+  // Update user's plan
+  stmts.updateUserPlan.run({ id: userId, plan: newPlan })
+  
+  // Update their active API key limits
+  const newLimit = PLAN_LIMITS[newPlan]
+  stmts.updateKeyLimits.run({ user_id: userId, plan: newPlan, limit_day: newLimit })
+  
+  return { 
+    ok: true, 
+    user: { id: userId, email: user.email, old_plan: user.plan, new_plan: newPlan, new_daily_limit: newLimit }
+  }
+})
+
+// ── Admin: Get all users with their plans ──
+const getAllUsersWithPlans = () => {
+  const users = stmts.getAllUsers.all()
+  return users.map(user => {
+    const key = stmts.getKeyByUser.get(user.id)
+    return {
+      ...user,
+      api_key: key?.key,
+      daily_limit: key?.limit_day || PLAN_LIMITS[user.plan],
+      used_today: stmts.countToday.get(user.id).total
+    }
+  })
+}
 
 module.exports = {
   upsertPending:  (data)  => stmts.upsertPending.run(data),
@@ -191,9 +262,9 @@ module.exports = {
   getKey:         (key)     => stmts.getKey.get(key),
   getKeyByUser:   (userId)  => stmts.getKeyByUser.get(userId),
   updateProfile:  (data) => stmts.updateProfile.run(data),
+  allKeysStats:  ()      => stmts.allKeysStats.all(),
   updatePassword: (data) => stmts.updatePassword.run(data),
-  rotateKey,
-  checkAndLog,
+  rotateKey, changeUserPlan, getAllUsersWithPlans, checkAndLog,
   countToday:     (userId)  => stmts.countToday.get(userId).total,
   statsForUser:   (userId)  => ({ ...stmts.statsForUser.get(userId), recent: stmts.recentForUser.all(userId) }),
   allUsersStats:  ()        => stmts.allUsersStats.all(),
