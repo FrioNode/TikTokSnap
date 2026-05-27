@@ -212,7 +212,7 @@ Content-Type: application/json
 
 ### Step 3: Queue a download (paste your api_key below)
 POST {{baseUrl}}/download
-x-api-key: PASTE_YOUR_API_KEY_HERE
+x-api-key: {{apiKey}}
 Content-Type: application/json
 
 {
@@ -221,22 +221,23 @@ Content-Type: application/json
 }
 
 ### Step 4: Poll job until status = "completed" (paste jobId from above)
-GET {{baseUrl}}/job/JOB_ID_FROM_STEP_3
-x-api-key: PASTE_YOUR_API_KEY_HERE
+GET {{baseUrl}}/job/{{{{jobId}}}}
+x-api-key: {{apiKey}}
 
 ### Step 5: Download the file (paste jobId when completed)
-GET {{baseUrl}}/file/JOB_ID_FROM_STEP_3
-x-api-key: PASTE_YOUR_API_KEY_HERE
+GET {{baseUrl}}/file/{{{{jobId}}}}
+x-api-key: {{apiKey}}
 
 ### Step 6: Check your usage stats
 GET {{baseUrl}}/me
-x-api-key: PASTE_YOUR_API_KEY_HERE
+x-api-key: {{apiKey}}
 
 ### ========================================
 ### CLEAN URLs TEST (Mobile copy-paste)
 ### ========================================
 
 ### Test with messy TikTok URL (should be cleaned automatically)
+# @name messyUrlTest
 POST {{baseUrl}}/download
 x-api-key: {{apiKey}}
 Content-Type: application/json
@@ -246,7 +247,11 @@ Content-Type: application/json
   "quality": "best"
 }
 
+### keep job id
+@jobId1 = {{messyUrlTest.response.body.jobId}}
+
 ### Test with PC URL (query params should be stripped)
+# @name pcUrlTest
 POST {{baseUrl}}/download
 x-api-key: {{apiKey}}
 Content-Type: application/json
@@ -255,3 +260,6 @@ Content-Type: application/json
   "url": "https://www.tiktok.com/@fabiana_v_carmo/video/7620636021603962133?is_from_webapp=1&sender_device=pc",
   "quality": "best"
 }
+
+### keep job id
+@jobId = {{pcUrlTest.response.body.jobId}}

@@ -13,8 +13,12 @@ const downloadQueue = new Queue('tiktok-downloads', {
   defaultJobOptions: {
     attempts: 3,
     backoff: { type: 'exponential', delay: 5000 },
-    removeOnComplete: 50,
-    removeOnFail: 20,
+    removeOnComplete: {
+      age: 11 * 60, // Remove completed jobs after 11 minutes (660 seconds)
+    },
+    removeOnFail: {
+      age: 11 * 60, // Remove failed jobs after 11 minutes (gives 1 min flex for UI)
+    },
     timeout: 90000
   }
 })
@@ -64,7 +68,8 @@ downloadQueue.process(1, async (job) => {
 
 downloadQueue.on('completed', (job, result) => {
   console.log(`✅ Job ${job.id} done — ${result.fileSize} bytes`)
-  // Auto-cleanup after 10 mins
+  // Auto-cleanup after 11 mins (handled by removeOnComplete now)
+  // File cleanup still happens after 10 mins as before
   setTimeout(() => {
     if (fs.existsSync(result.filePath)) fs.unlink(result.filePath, () => {})
   }, 10 * 60 * 1000)

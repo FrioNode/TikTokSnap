@@ -3,6 +3,9 @@ const state = {
   apiKey: localStorage.getItem('apiKey')
 }
 
+const JOBS_KEY = 'tiktok_jobs'
+const JOB_EXPIRY_MINUTES = 10 // Synced from backend /queue/config
+
 function setTheme(dark) {
   document.documentElement.classList.toggle('dark', dark)
   const icon = document.getElementById('themeIcon')
@@ -224,11 +227,6 @@ async function registerPage() {
   }
 }
 
-// Reset password
-
-// ─────────────────────────────────────────
-// Forgot Password Page (new HTML page)
-// ─────────────────────────────────────────
 async function forgotPasswordPage() {
   const form = document.getElementById('forgotPasswordForm')
   if (!form) return
@@ -255,11 +253,9 @@ async function forgotPasswordPage() {
       
       if (!res.ok) return showNotice(data.error || 'Something went wrong', 'error')
       
-      // Always show success message (even if email doesn't exist - security)
       showNotice('If that email is registered, a reset link has been sent', 'success')
       form.reset()
       
-      // Optional: redirect to login after 3 seconds
       setTimeout(() => location.href = '/login.html', 3000)
     } catch (err) {
       btn.disabled = false
@@ -269,11 +265,7 @@ async function forgotPasswordPage() {
   })
 }
 
-// ─────────────────────────────────────────
-// Set New Password Page (from email link)
-// ─────────────────────────────────────────
 async function setNewPasswordPage() {
-  // Get token from URL
   const urlParams = new URLSearchParams(window.location.search)
   const token = urlParams.get('token')
   
@@ -333,7 +325,10 @@ async function setNewPasswordPage() {
     }
   })
 }
-// load dashboard
+
+// ─────────────────────────────────────────
+// DASHBOARD
+// ─────────────────────────────────────────
 async function loadDashboard() {
   if (!requireAuthPage()) return
   const statusEl = document.getElementById('dashboardStatus')
@@ -347,13 +342,27 @@ async function loadDashboard() {
   const jobsList = document.getElementById('jobsList')
   const jobs = new Map()
   let pollInterval = null
-  const JOBS_KEY = 'tiktok_jobs'
+  let jobExpiryMs = JOB_EXPIRY_MINUTES * 60 * 1000 // Will be updated from backend
 
-async function renderJobs() {
-    if (jobs.size === 0) {
-        jobsList.innerHTML = '<div style="grid-column:1/-1;color:var(--tx3);font-size:14px;padding:2rem;text-align:center">No downloads yet. Queue a video to get started.</div>'
-        return
+  // Fetch queue config to get job expiry minutes
+  async function fetchQueueConfig() {
+    try {
+      const res = await fetch('/queue/config')
+      if (res.ok) {
+        const config = await res.json()
+        jobExpiryMs = config.jobExpiryMinutes * 60 * 1000
+      }
+    } catch (err) {
+      console.warn('Could not fetch queue config, using default 10 minutes')
     }
+  }
+
+  async function renderJobs() {
+    if (jobs.size === 0) {
+      jobsList.innerHTML = '<div style="grid-column:1/-1;color:var(--tx3);font-size:14px;padding:2rem;text-align:center">No downloads yet. Queue a video to get started.</div>'
+      return
+    }
+    
     jobsList.innerHTML = Array.from(jobs.values()).map(job => `
       <div class="card job-card" data-job-id="${job.jobId}" style="border-color:var(--bd2)">
         <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px">
@@ -362,61 +371,82 @@ async function renderJobs() {
             <p style="font-size:0.9rem;color:var(--tx3);margin-bottom:6px">${job.status === 'active' ? 'Downloading...' : job.status === 'completed' ? 'Ready to download' : job.status === 'failed' ? 'Failed' : 'Waiting in queue...'}</p>
             ${job.progress !== undefined ? `<div style="width:100%;height:6px;background:var(--bg);border-radius:3px;overflow:hidden"><div style="height:100%;background:var(--accent);width:${job.progress}%;transition:width .3s"></div></div>` : ''}
           </div>
-          ${job.status === 'completed' ? `<button class="btn-download" data-job-id="${job.jobId}" data-download-url="${job.downloadUrl}" style="display:inline-block;background:#3b82f6;color:white;padding:7px 14px;border-radius:12px;border:none;font-size:12px;font-weight:500;white-space:nowrap;cursor:pointer">Download</button>` : ''}
+          <div style="display:flex;gap:6px;flex-shrink:0">
+            ${job.status === 'completed' ? `<button class="btn-download" data-job-id="${job.jobId}" data-download-url="${job.downloadUrl}" style="background:#3b82f6;color:white;padding:7px 14px;border-radius:12px;border:none;font-size:12px;font-weight:500;white-space:nowrap;cursor:pointer">Download</button>` : ''}
+            <button class="btn-close-job" data-job-id="${job.jobId}" style="background:var(--bg2);color:var(--tx2);padding:7px 14px;border-radius:12px;border:none;font-size:12px;font-weight:500;white-space:nowrap;cursor:pointer">Close</button>
+          </div>
         </div>
       </div>
     `).join('')
     
-    // Attach download event listeners
+    // Download button listeners
     document.querySelectorAll('.btn-download').forEach(btn => {
-        btn.addEventListener('click', async (e) => {
-            const jobId = btn.dataset.jobId
-            const downloadUrl = btn.dataset.downloadUrl
-            try {
-                // Trigger download
-                const a = document.createElement('a')
-                a.href = downloadUrl
-                a.download = `tiktok_${jobId}.mp4`
-                document.body.appendChild(a)
-                a.click()
-                document.body.removeChild(a)
-                
-                // Remove job from UI and storage
-                jobs.delete(jobId)
-                removePersistedJobId(jobId)
-                await renderJobs()
-                showNotice('Download started!', 'success')
-            } catch (err) {
-                console.error('Download failed:', err)
-                showNotice('Download failed', 'error')
-            }
-        })
+      btn.addEventListener('click', async (e) => {
+        const jobId = btn.dataset.jobId
+        const downloadUrl = btn.dataset.downloadUrl
+        try {
+          const a = document.createElement('a')
+          a.href = downloadUrl
+          a.download = `tiktok_${jobId}.mp4`
+          document.body.appendChild(a)
+          a.click()
+          document.body.removeChild(a)
+          
+          // Remove job after download
+          jobs.delete(jobId)
+          removePersistedJobId(jobId)
+          await renderJobs()
+          showNotice('Download started!', 'success')
+        } catch (err) {
+          console.error('Download failed:', err)
+          showNotice('Download failed', 'error')
+        }
+      })
     })
-}
 
-async function pollJobs() {
+    // Close button listeners (new)
+    document.querySelectorAll('.btn-close-job').forEach(btn => {
+      btn.addEventListener('click', async (e) => {
+        const jobId = btn.dataset.jobId
+        jobs.delete(jobId)
+        removePersistedJobId(jobId)
+        await renderJobs()
+        showNotice(`Job ${jobId} removed`, 'info')
+      })
+    })
+  }
+
+  async function pollJobs() {
     if (jobs.size === 0) return
+    const now = Date.now()
     
     for (const [jobId, job] of jobs) {
-        try {
-            const res = await fetch(`/job/${jobId}`, { headers: authHeaders() })
-            const data = await res.json()
-            if (res.ok) {
-                jobs.set(jobId, { ...job, ...data })
-                await renderJobs()
-            } else if (res.status === 404) {
-                // Job expired on backend (10 minutes passed)
-                jobs.delete(jobId)
-                removePersistedJobId(jobId)
-                await renderJobs()
-                showNotice(`Job ${jobId} has expired`, 'info')
-            }
-        } catch (err) {
-            console.error(`Failed to poll job ${jobId}`, err)
+      // Auto-remove jobs older than jobExpiryMs
+      if (job.createdAt && (now - job.createdAt) > jobExpiryMs) {
+        console.log(`🗑️ Auto-removing expired job ${jobId}`)
+        jobs.delete(jobId)
+        removePersistedJobId(jobId)
+        continue
+      }
+
+      try {
+        const res = await fetch(`/job/${jobId}`, { headers: authHeaders() })
+        const data = await res.json()
+        if (res.ok) {
+          jobs.set(jobId, { ...job, ...data })
+        } else if (res.status === 404) {
+          // Job expired on backend
+          console.log(`Backend returned 404 for job ${jobId}`)
+          jobs.delete(jobId)
+          removePersistedJobId(jobId)
+          showNotice(`Job ${jobId} has expired`, 'info')
         }
+      } catch (err) {
+        console.error(`Failed to poll job ${jobId}`, err)
+      }
     }
     await renderJobs()
-}
+  }
 
   try {
     const res = await fetch('/auth/me', { headers: authHeaders() })
@@ -453,7 +483,7 @@ async function pollJobs() {
       recentTableBody.innerHTML = rows.length > 0 ? rows.join('') : '<tr><td colspan="6" style="padding:1.5rem;text-align:center;color:var(--tx3)">No recent activity yet.</td></tr>'
     }
 
-    // Fetch backend health status
+    // Backend health check
     const healthEl = document.getElementById('backendHealth')
     if (healthEl) {
       try {
@@ -501,9 +531,14 @@ async function pollJobs() {
         })
         const data = await res.json()
         if (!res.ok) return showNotice(data.error || 'Could not queue download', 'error')
-        jobs.set(data.jobId, { jobId: data.jobId, status: data.status, progress: 0, downloadUrl: null })
-        // persist job id so it survives refresh
-        persistJobId(String(data.jobId))
+        jobs.set(data.jobId, { 
+          jobId: data.jobId, 
+          status: data.status, 
+          progress: 0, 
+          downloadUrl: null,
+          createdAt: Date.now() // ← Track creation time
+        })
+        persistJobId(String(data.jobId), Date.now()) // ← Persist with timestamp
         await renderJobs()
         showNotice(`Queued! Job ID: ${data.jobId}`, 'success')
         downloadForm.url.value = ''
@@ -514,42 +549,49 @@ async function pollJobs() {
     })
   }
 
-  // restore persisted job IDs AND fetch their current status
+  // Restore persisted jobs with timestamps
   (async function restoreJobs() {
-      try {
-          const stored = JSON.parse(localStorage.getItem(JOBS_KEY) || '[]')
-          if (Array.isArray(stored) && stored.length > 0) {
-              for (const id of stored) {
-                  try {
-                      const res = await fetch(`/job/${id}`, { headers: authHeaders() })
-                      const data = await res.json()
-                      if (res.ok) {
-                          // Keep ALL jobs, including completed/failed
-                          jobs.set(String(id), { jobId: String(id), ...data })
-                          // DON'T remove from localStorage here!
-                      } else if (res.status === 404) {
-                          // Job expired on backend - remove from localStorage
-                          removePersistedJobId(id)
-                      } else {
-                          jobs.set(String(id), { jobId: String(id), status: 'queued', progress: 0 })
-                      }
-                  } catch (err) {
-                      jobs.set(String(id), { jobId: String(id), status: 'queued', progress: 0 })
-                  }
-              }
+    try {
+      const stored = JSON.parse(localStorage.getItem(JOBS_KEY) || '[]')
+      if (Array.isArray(stored) && stored.length > 0) {
+        for (const item of stored) {
+          // Support both old format (string) and new format (object)
+          const jobId = typeof item === 'string' ? item : item.id
+          const createdAt = typeof item === 'string' ? Date.now() : (item.createdAt || Date.now())
+
+          try {
+            const res = await fetch(`/job/${jobId}`, { headers: authHeaders() })
+            const data = await res.json()
+            if (res.ok) {
+              jobs.set(String(jobId), { jobId: String(jobId), ...data, createdAt })
+            } else if (res.status === 404) {
+              removePersistedJobId(jobId)
+            } else {
+              jobs.set(String(jobId), { jobId: String(jobId), status: 'queued', progress: 0, createdAt })
+            }
+          } catch (err) {
+            jobs.set(String(jobId), { jobId: String(jobId), status: 'queued', progress: 0, createdAt })
           }
-      } catch (err) {
-          console.error('Failed to restore jobs from storage', err)
+        }
       }
-      await renderJobs()
+    } catch (err) {
+      console.error('Failed to restore jobs from storage', err)
+    }
+    await renderJobs()
   })()
 
-  function persistJobId(id) {
+  function persistJobId(id, createdAt = Date.now()) {
     try {
       const arr = JSON.parse(localStorage.getItem(JOBS_KEY) || '[]')
-      const s = new Set(arr.map(String))
+      const s = new Set(arr.map(item => typeof item === 'string' ? item : item.id))
+      s.delete(String(id))
       s.add(String(id))
-      localStorage.setItem(JOBS_KEY, JSON.stringify(Array.from(s)))
+      
+      const newArr = Array.from(s).map(jobId => ({
+        id: jobId,
+        createdAt: jobId === String(id) ? createdAt : Date.now()
+      }))
+      localStorage.setItem(JOBS_KEY, JSON.stringify(newArr))
     } catch (err) {
       console.error('Failed to persist job id', err)
     }
@@ -558,18 +600,22 @@ async function pollJobs() {
   function removePersistedJobId(id) {
     try {
       const arr = JSON.parse(localStorage.getItem(JOBS_KEY) || '[]')
-      const filtered = Array.isArray(arr) ? arr.map(String).filter(item => item !== String(id)) : []
+      const filtered = arr.filter(item => {
+        const jobId = typeof item === 'string' ? item : item.id
+        return jobId !== String(id)
+      })
       localStorage.setItem(JOBS_KEY, JSON.stringify(filtered))
     } catch (err) {
       console.error('Failed to remove job id', err)
     }
   }
 
+  // Fetch config, render, and start polling
+  await fetchQueueConfig()
   await renderJobs()
   pollInterval = setInterval(pollJobs, 2000)
   window.addEventListener('beforeunload', () => clearInterval(pollInterval))
 }
-
 
 async function loadSettings() {
   if (!requireAuthPage()) return
@@ -663,9 +709,9 @@ window.addEventListener('DOMContentLoaded', () => {
   } else if (page === '/settings.html') {
     loadSettings()
   } else if (page === '/forgot-password.html') {
-    forgotPasswordPage()  // ✅ ADD THIS
+    forgotPasswordPage()
   } else if (page === '/set-new-password.html') {
-    setNewPasswordPage()  // ✅ ADD THIS
+    setNewPasswordPage()
   }
 
   const logoutBtn = document.getElementById('logoutBtn')

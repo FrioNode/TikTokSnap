@@ -19,6 +19,9 @@ app.use('/auth', authRouter)
 const limiter = rateLimit({
   windowMs: 60 * 60 * 1000,
   max: 200,
+  skip: (req) => {
+    return req.path.startsWith('/job/') || req.path === '/health'
+  },
   message: { error: 'Rate limit hit. Upgrade your plan.' }
 })
 app.use(limiter)
@@ -48,7 +51,7 @@ function isValidTikTokUrl(url) {
   return /tiktok\.com\/@[\w.]+\/video\/\d+|vm\.tiktok\.com\/\w+|vt\.tiktok\.com\/\w+/.test(url)
 }
 
-// ── Auth + usage tracking middleware ────
+// ── Auth middleware (NO logging yet - that happens in route handlers) ────
 app.use((req, res, next) => {
   if (req.path === '/health') return next()
   // Don't count job polling or downloads against quota
@@ -64,16 +67,8 @@ app.use((req, res, next) => {
   const keyRecord = db.getKey(key)
   if (!keyRecord) return res.status(401).json({ error: 'Invalid API key' })
 
-  const allowed = checkAndLog(keyRecord.user_id, keyRecord.limit_day, {
-    api_key: key,
-    endpoint: req.path,
-    url: req.body?.url ? cleanTikTokUrl(req.body.url) : null,
-    job_id: req.params?.id || null,
-    status: 'ok',
-    ip: req.ip
-  })
-
-  if (!allowed) {
+  // Check if user has quota (don't log yet)
+  if (db.countToday(keyRecord.user_id) >= keyRecord.limit_day) {
     return res.status(429).json({
       error: 'Daily limit reached',
       plan: keyRecord.plan,
@@ -90,36 +85,68 @@ app.use((req, res, next) => {
 })
 
 // ─────────────────────────────────────────
-// POST /info
+// Shared: Validate video metadata early
+// Reused by /info, /download, /audio
 // ─────────────────────────────────────────
-app.post('/info', (req, res) => {
+function validateVideoMetadata(url) {
+  return new Promise((resolve, reject) => {
+    exec(`yt-dlp --dump-json --no-playlist "${url}"`, { timeout: 30000 }, (err, stdout, stderr) => {
+      if (err) {
+        reject(new Error(`Video not found or inaccessible: ${stderr}`))
+        return
+      }
+      try {
+        const info = JSON.parse(stdout)
+        resolve(info)
+      } catch {
+        reject(new Error('Failed to parse video metadata'))
+      }
+    })
+  })
+}
+
+// ─────────────────────────────────────────
+// POST /info
+// Validates & returns metadata (logged & billable on success)
+// ─────────────────────────────────────────
+app.post('/info', async (req, res) => {
   const { url } = req.body
   if (!url || !isValidTikTokUrl(url)) {
     return res.status(400).json({ error: 'Invalid TikTok URL' })
   }
 
-  exec(`yt-dlp --dump-json --no-playlist "${url}"`, { timeout: 30000 }, (err, stdout, stderr) => {
-    if (err) return res.status(503).json({ error: 'Could not fetch video info', detail: stderr })
-    try {
-      const info = JSON.parse(stdout)
-      res.json({
-        id: info.id,
-        title: info.title,
-        author: info.uploader,
-        duration: info.duration,
-        views: info.view_count,
-        likes: info.like_count,
-        thumbnail: info.thumbnail,
-        uploadDate: info.upload_date
-      })
-    } catch {
-      res.status(500).json({ error: 'Failed to parse video info' })
-    }
-  })
+  try {
+    const info = await validateVideoMetadata(url)
+    
+    // ✅ LOG ONLY ON SUCCESS
+    checkAndLog(req.keyRecord.user_id, req.keyRecord.limit_day, {
+      api_key: req.apiKey,
+      endpoint: '/info',
+      url: cleanTikTokUrl(url),
+      job_id: null,
+      status: 'ok',
+      ip: req.ip
+    })
+    
+    res.json({
+      id: info.id,
+      title: info.title,
+      author: info.uploader,
+      duration: info.duration,
+      views: info.view_count,
+      likes: info.like_count,
+      thumbnail: info.thumbnail,
+      uploadDate: info.upload_date
+    })
+  } catch (err) {
+    // ❌ VALIDATION FAILED - NO LOG, NO BILL
+    res.status(503).json({ error: err.message })
+  }
 })
 
 // ─────────────────────────────────────────
 // POST /download
+// Validates BEFORE queuing (prevents phantom charges)
 // ─────────────────────────────────────────
 app.post('/download', async (req, res) => {
   const { url, quality = 'best' } = req.body
@@ -128,13 +155,27 @@ app.post('/download', async (req, res) => {
   }
 
   try {
+    // Early validation: check if video actually exists
+    // Fails fast without billing the user
+    await validateVideoMetadata(url)
+
+    // ✅ VALIDATION PASSED - NOW LOG & BILL
+    checkAndLog(req.keyRecord.user_id, req.keyRecord.limit_day, {
+      api_key: req.apiKey,
+      endpoint: '/download',
+      url: cleanTikTokUrl(url),
+      job_id: null, // Will update after queue succeeds
+      status: 'ok',
+      ip: req.ip
+    })
+
+    // Only queue if video is valid
     const job = await downloadQueue.add({ url, quality, type: 'video' })
     
-// Update the usage log with the job_id and cleaned URL
-  const cleanUrl = cleanTikTokUrl(url)
-  db.db.prepare(`UPDATE usage SET job_id = ?, url = ? WHERE id = (
-    SELECT id FROM usage WHERE api_key = ? AND endpoint = '/download' AND job_id IS NULL ORDER BY created_at DESC LIMIT 1
-  )`).run(job.id, cleanUrl, req.apiKey)
+    // Update the usage log with the job_id
+    db.db.prepare(`UPDATE usage SET job_id = ? WHERE id = (
+      SELECT id FROM usage WHERE api_key = ? AND endpoint = '/download' AND job_id IS NULL ORDER BY created_at DESC LIMIT 1
+    )`).run(job.id, req.apiKey)
     
     const queueDepth = await downloadQueue.getWaitingCount()
 
@@ -147,12 +188,14 @@ app.post('/download', async (req, res) => {
       remainingToday: req.keyRecord.limit_day - db.countToday(req.keyRecord.user_id)
     })
   } catch (err) {
-    res.status(500).json({ error: 'Failed to queue job', detail: err.message })
+    // ❌ VALIDATION FAILED - NO LOG, NO BILL
+    res.status(503).json({ error: err.message })
   }
 })
 
 // ─────────────────────────────────────────
 // POST /audio
+// Validates BEFORE queuing (prevents phantom charges)
 // ─────────────────────────────────────────
 app.post('/audio', async (req, res) => {
   const { url } = req.body
@@ -161,7 +204,28 @@ app.post('/audio', async (req, res) => {
   }
 
   try {
+    // Early validation: check if video actually exists
+    // Fails fast without billing the user
+    await validateVideoMetadata(url)
+
+    // ✅ VALIDATION PASSED - NOW LOG & BILL
+    checkAndLog(req.keyRecord.user_id, req.keyRecord.limit_day, {
+      api_key: req.apiKey,
+      endpoint: '/audio',
+      url: cleanTikTokUrl(url),
+      job_id: null, // Will update after queue succeeds
+      status: 'ok',
+      ip: req.ip
+    })
+
+    // Only queue if video is valid
     const job = await downloadQueue.add({ url, type: 'audio' })
+    
+    // Update the usage log with the job_id
+    db.db.prepare(`UPDATE usage SET job_id = ? WHERE id = (
+      SELECT id FROM usage WHERE api_key = ? AND endpoint = '/audio' AND job_id IS NULL ORDER BY created_at DESC LIMIT 1
+    )`).run(job.id, req.apiKey)
+    
     res.status(202).json({
       jobId: job.id,
       status: 'queued',
@@ -169,7 +233,8 @@ app.post('/audio', async (req, res) => {
       remainingToday: req.keyRecord.limit_day - db.countToday(req.keyRecord.user_id)
     })
   } catch (err) {
-    res.status(500).json({ error: 'Failed to queue job' })
+    // ❌ VALIDATION FAILED - NO LOG, NO BILL
+    res.status(503).json({ error: err.message })
   }
 })
 
@@ -391,6 +456,36 @@ app.get('/health', (_, res) => res.json({ status: 'ok' }))
 setInterval(() => db.pruneExpired(), 60 * 60 * 1000)
 
 const PORT = process.env.PORT || 3000
-app.listen(PORT, "0.0.0.0", () =>
-  console.log(`🚀 TikTok API on port ${PORT}`)
-);
+const server = process.env.BACKEND_URL || `http://localhost:${PORT}`
+console.log(`🚀 TikTok API server is live at > ${server}`)
+app.listen(PORT, "0.0.0.0", () => console.log(`🚀 TikTok API on port ${PORT}`));
+
+// ─────────────────────────────────────────
+// GET /queue/config
+// Returns job expiry config (frontend uses this)
+// ─────────────────────────────────────────
+app.get('/queue/config', (req, res) => {
+  res.json({
+    jobExpiryMinutes: 10, // Frontend removes jobs older than this
+    jobExpirySecondsBackend: 11 * 60 // Backend TTL (11 mins = 1 min flex)
+  })
+})
+
+// ─────────────────────────────────────────
+// GET /queue/stats
+// ─────────────────────────────────────────
+app.get('/queue/stats', async (req, res) => {
+  const [waiting, active, completed, failed] = await Promise.all([
+    downloadQueue.getWaitingCount(),
+    downloadQueue.getActiveCount(),
+    downloadQueue.getCompletedCount(),
+    downloadQueue.getFailedCount()
+  ])
+  res.json({ 
+    waiting, 
+    active, 
+    completed, 
+    failed,
+    jobExpiryMinutes: 10
+  })
+})
